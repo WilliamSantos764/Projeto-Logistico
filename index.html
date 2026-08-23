@@ -6,6 +6,8 @@
     <title>Sistema de Gestão & Fluxo de Veículos</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- SheetJS CDN para importação de Planilhas Excel (.xlsx / .csv) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
     <header class="navbar">
@@ -13,8 +15,14 @@
             <span class="logo-icon">🚛</span>
             <h2>Gestão & Fluxo</h2>
         </div>
-        <div class="status-offline" id="status-offline">
-            <span class="status-dot"></span> <span id="status-text">Online (Dados Salvos Localmente)</span>
+        <div class="header-actions">
+            <!-- Botão de Importar Planilha Excel/CSV -->
+            <input type="file" id="input-importar-planilha" accept=".xlsx, .xls, .csv" style="display: none;">
+            <button id="btn-importar-planilha" class="btn btn-success">📥 Importar Planilha (Excel/CSV)</button>
+            
+            <div class="status-offline" id="status-offline">
+                <span class="status-dot"></span> <span id="status-text">Online (Dados Salvos)</span>
+            </div>
         </div>
     </header>
 
@@ -71,7 +79,7 @@
                 </div>
             </div>
 
-            <!-- Resumo Financeiro Rápidos -->
+            <!-- Resumo Financeiro Rápido -->
             <div class="summary-cards">
                 <div class="summary-card">
                     <span>Valor Total Geral Cumulativo</span>

@@ -10,6 +10,7 @@
     --border-color: #e2e8f0;
     --danger: #ef4444;
     --success: #10b981;
+    --success-hover: #059669;
     --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     --radius: 10px;
 }
@@ -36,6 +37,8 @@ body {
     justify-content: space-between;
     align-items: center;
     box-shadow: var(--shadow);
+    flex-wrap: wrap;
+    gap: 15px;
 }
 
 .logo {
@@ -46,6 +49,12 @@ body {
 
 .logo-icon {
     font-size: 1.5rem;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
 }
 
 .status-offline {
@@ -371,6 +380,15 @@ body {
 
 .btn-primary:hover {
     background-color: var(--primary-hover);
+}
+
+.btn-success {
+    background-color: var(--success);
+    color: white;
+}
+
+.btn-success:hover {
+    background-color: var(--success-hover);
 }
 
 .btn-secondary {

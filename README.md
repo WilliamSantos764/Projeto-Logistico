@@ -1,33 +1,27 @@
-# Sistema de Gestão & Fluxo de Veículos
+# Sistema de Gestão & Fluxo de Veículos (Com Importação Excel)
 
-Este pacote ZIP contém a aplicação completa e atualizada do **Sistema de Gestão & Fluxo de Veículos**, pronta para uso em qualquer navegador web.
+Este arquivo ZIP contém o sistema completo com a funcionalidade de **Importação de Planilha Excel / CSV** integrada.
 
-## 🚀 Funcionalidades Implementadas
+## 📥 Como Funciona a Importação de Planilha:
 
-1. **Indicadores Clicáveis (Interatividade com o Fluxo):**
-   - Ao clicar em **qualquer card de indicador** (ex: *Veículos SPOT Usados*, *Frota Própria*, *Terceiros Fixos* ou *Total*), o sistema redireciona o usuário diretamente para a aba Fluxo.
-   - A tabela é **filtrada instantaneamente** exibindo apenas os veículos daquele indicador.
-   - A página faz um **scroll suave** para focar a tabela no indicador selecionado.
-   - O indicador ativo recebe um destaque de borda e sombra azul.
-
-2. **Detalhamento no Fluxo:**
-   - Exibição de **Valor Unitário**, **Quantidade de Parcelas** e **Valor Total Cadastrado** para cada item.
-
-3. **Autocomplete / Sugestões de Categoria:**
-   - Campo de entrada com datalist inteligente para autopreenchimento rápido de categorias.
-
-4. **Formatação de Moeda (R$) em Tempo Real:**
-   - Input de valor com máscara dinâmica que formata o valor enquanto digita.
-
-5. **Confirmação de Exclusão:**
-   - Modal com alerta de confirmação para evitar perdas acidentais de dados.
-
-6. **Persistência Offline (LocalStorage):**
-   - Funciona completamente sem internet e memoriza seus cadastros no navegador.
+1. No topo da página (cabeçalho), clique no botão verde **"📥 Importar Planilha (Excel/CSV)"**.
+2. Selecione qualquer arquivo `.xlsx`, `.xls` ou `.csv` do seu computador.
+3. O sistema reconhece automaticamente colunas como:
+   - **Descrição / Veículo**
+   - **Categoria / Tipo** (ex: `SPOT - Usado`, `Frota Própria`)
+   - **Valor Unitário / Valor**
+   - **Parcelas / Qtd Parcelas**
+   - **Data**
+4. Os dados serão importados imediatamente para o seu fluxo e os **cards indicadores do Dashboard serão recalculados na hora**!
 
 ---
 
-## 💻 Como Executar
+## 🚀 Todas as Funcionalidades Incluídas:
 
-1. Extraia o conteúdo deste arquivo `.zip`.
-2. Dê um duplo clique no arquivo `index.html` para abrir diretamente no Chrome, Edge ou Firefox.
+1. **📥 Importação de Planilhas Excel (.xlsx / .csv)** via biblioteca SheetJS.
+2. **📊 Indicadores Clicáveis:** Clicar nos cards (SPOT Usados, Frota Própria, etc.) filtra a tabela instantaneamente.
+3. **📋 Aba Fluxo:** Exibe valor unitário, parcelas e valor total acumulado.
+4. **💡 Autocomplete de Categorias:** Sugestões ao cadastrar.
+5. **💲 Formatação de Moeda em Tempo Real (R$).**
+6. **⚠️ Modal de Confirmação de Exclusão.**
+7. **💾 Persistência Offline:** Os dados ficam gravados no navegador (LocalStorage).

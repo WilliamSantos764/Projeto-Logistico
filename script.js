@@ -1,4 +1,4 @@
-// Sistema de Gestão e Fluxo de Veículos com Indicadores Clicáveis
+// Sistema de Gestão e Fluxo de Veículos com Importação de Planilha & Indicadores Clicáveis
 document.addEventListener('DOMContentLoaded', () => {
     inicializarData();
     inicializarDados();
@@ -8,14 +8,14 @@ document.addEventListener('DOMContentLoaded', () => {
     configurarIndicadoresClicaveis();
     configurarFiltroBusca();
     configurarFormulario();
+    configurarImportacaoPlanilha();
 });
 
-// Chave do LocalStorage para persistência offline
 const STORAGE_KEY = 'SISTEMA_FLUXO_DADOS_V2';
 let registros = [];
 let registroParaExcluirId = null;
 
-// Dados iniciais padrão se o LocalStorage estiver vazio
+// Dados iniciais de exemplo
 const dadosIniciaisPadrao = [
     { id: 1, data: '2026-02-10', descricao: 'Scania R450 6x2 - SPOT Usado', categoria: 'SPOT - Usado', valorUnitario: 350000.00, qtdParcelas: 24, valorTotal: 350000.00 },
     { id: 2, data: '2026-02-12', descricao: 'FH 540 6x4 Próprio', categoria: 'Frota Própria', valorUnitario: 520000.00, qtdParcelas: 36, valorTotal: 520000.00 },
@@ -47,7 +47,86 @@ function salvarStorage() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
 }
 
-/* 1. NAVEGAÇÃO ENTRE ABAS */
+/* 1. IMPORTAÇÃO DE PLANILHA EXCEL (.XLSX / .XLS / .CSV) */
+function configurarImportacaoPlanilha() {
+    const btnImportar = document.getElementById('btn-importar-planilha');
+    const inputImportar = document.getElementById('input-importar-planilha');
+
+    if (btnImportar && inputImportar) {
+        btnImportar.addEventListener('click', () => {
+            inputImportar.click();
+        });
+
+        inputImportar.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                try {
+                    const data = new Uint8Array(evt.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // Pegar primeira aba da planilha
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonRows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+                    if (jsonRows.length === 0) {
+                        alert('A planilha importada está vazia.');
+                        return;
+                    }
+
+                    // Processar linhas da planilha
+                    const novosRegistros = jsonRows.map((row, index) => {
+                        // Mapeamento flexível de nomes de colunas em português
+                        const desc = row['Descrição'] || row['Descricao'] || row['Veículo'] || row['Veiculo'] || row['Item'] || `Item Importado ${index + 1}`;
+                        const cat = row['Categoria'] || row['Tipo'] || 'SPOT - Usado';
+                        const dataReg = row['Data'] || row['Data Registro'] || new Date().toISOString().split('T')[0];
+                        
+                        let valUnit = parseMoedaFlexivel(row['Valor Unitário'] || row['Valor Unitario'] || row['Valor'] || row['Preço'] || 0);
+                        let parc = parseInt(row['Parcelas'] || row['Qtd Parcelas'] || row['Nº Parcelas'] || 1) || 1;
+                        let valTotal = parseMoedaFlexivel(row['Valor Total'] || row['Total'] || valUnit);
+
+                        return {
+                            id: Date.now() + index,
+                            data: String(dataReg),
+                            descricao: String(desc),
+                            categoria: String(cat),
+                            valorUnitario: valUnit,
+                            qtdParcelas: parc,
+                            valorTotal: valTotal > 0 ? valTotal : valUnit
+                        };
+                    });
+
+                    // Adiciona os dados importados aos registros atuais
+                    registros = [...novosRegistros, ...registros];
+                    salvarStorage();
+                    atualizarTudo('TODOS');
+
+                    alert(`✅ Sucesso! ${novosRegistros.length} registros foram importados da planilha.`);
+                    mudarParaAba('fluxo');
+
+                } catch (error) {
+                    console.error('Erro ao ler a planilha:', error);
+                    alert('Erro ao importar a planilha. Verifique se o arquivo é um Excel (.xlsx/.xls) ou CSV válido.');
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
+            inputImportar.value = ''; // Limpa input file
+        });
+    }
+}
+
+function parseMoedaFlexivel(val) {
+    if (typeof val === 'number') return val;
+    if (!val) return 0;
+    const str = String(val).replace(/[^0-9,-.]/g, '').replace(',', '.');
+    return parseFloat(str) || 0;
+}
+
+/* 2. NAVEGAÇÃO ENTRE ABAS */
 function configurarNavegacao() {
     const tabBtns = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
@@ -65,7 +144,7 @@ function configurarNavegacao() {
     });
 }
 
-/* 2. MÁSCARA EM TEMPO REAL PARA MOEDA (R$) */
+/* 3. MÁSCARA EM TEMPO REAL PARA MOEDA (R$) */
 function configurarMascaraMoeda() {
     const inputValor = document.getElementById('valor-unitario');
 
@@ -91,7 +170,7 @@ function parseMoeda(str) {
     return parseFloat(str.replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
 }
 
-/* 3. CÁLCULO DO VALOR TOTAL E PARCELAS NO FORMULÁRIO */
+/* 4. CÁLCULO DO VALOR TOTAL E PARCELAS NO FORMULÁRIO */
 function configurarCalculoTotal() {
     const qtdInput = document.getElementById('qtd-parcelas');
     qtdInput.addEventListener('input', atualizarTotalCalculado);
@@ -99,13 +178,10 @@ function configurarCalculoTotal() {
 
 function atualizarTotalCalculado() {
     const valorUnitario = parseMoeda(document.getElementById('valor-unitario').value);
-    const qtdParcelas = parseInt(document.getElementById('qtd-parcelas').value) || 1;
-    // O valor total cadastrado é o valor unitario total do bem/contrato
-    const total = valorUnitario;
-    document.getElementById('valor-total-calculado').value = formatarMoeda(total);
+    document.getElementById('valor-total-calculado').value = formatarMoeda(valorUnitario);
 }
 
-/* 4. INDICADORES CLICÁVEIS (FILTRO DIRECT TO DATA) */
+/* 5. INDICADORES CLICÁVEIS */
 function configurarIndicadoresClicaveis() {
     const kpiCards = document.querySelectorAll('.kpi-card');
     const btnReset = document.getElementById('btn-reset-filtro');
@@ -114,17 +190,12 @@ function configurarIndicadoresClicaveis() {
         card.addEventListener('click', () => {
             const filtro = card.getAttribute('data-filtro');
 
-            // Destacar o card ativo
             kpiCards.forEach(c => c.classList.remove('active'));
             card.classList.add('active');
 
-            // Ir para a aba Fluxo para mostrar os dados correspondentes
             mudarParaAba('fluxo');
-
-            // Aplicar o filtro na tabela
             aplicarFiltroCategoria(filtro);
 
-            // Scroll suave até a tabela
             const secaoTabela = document.getElementById('secao-tabela');
             if (secaoTabela) {
                 secaoTabela.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -159,7 +230,7 @@ function aplicarFiltroCategoria(filtro) {
     renderizarTabela(filtro);
 }
 
-/* 5. BUSCA RÁPIDA */
+/* 6. BUSCA RÁPIDA */
 function configurarFiltroBusca() {
     const inputBusca = document.getElementById('input-busca');
     inputBusca.addEventListener('input', () => {
@@ -170,7 +241,7 @@ function configurarFiltroBusca() {
     });
 }
 
-/* 6. ATUALIZAÇÃO DOS CARD DE INDICADORES E TABELA */
+/* 7. ATUALIZAÇÃO DOS CARDS DE INDICADORES E TABELA */
 function atualizarTudo(filtroAtual = 'TODOS') {
     atualizarKPIs();
     renderizarTabela(filtroAtual);
@@ -187,7 +258,6 @@ function atualizarKPIs() {
     document.getElementById('kpi-propria').innerText = propriaCount;
     document.getElementById('kpi-terceiros').innerText = terceirosCount;
 
-    // Métricas financeiras
     const somaTotal = registros.reduce((acc, r) => acc + (r.valorTotal || 0), 0);
     const mediaParc = totalGeral > 0 ? Math.round(registros.reduce((acc, r) => acc + (r.qtdParcelas || 1), 0) / totalGeral) : 0;
 
@@ -201,7 +271,6 @@ function renderizarTabela(filtro = 'TODOS', buscaTermo = '') {
     tbody.innerHTML = '';
 
     let filtrados = registros.filter(item => {
-        // Filtro da Categoria
         let atendeCategoria = true;
         const cat = (item.categoria || '').toUpperCase();
 
@@ -213,7 +282,6 @@ function renderizarTabela(filtro = 'TODOS', buscaTermo = '') {
             atendeCategoria = cat.includes('TERCEIRO');
         }
 
-        // Filtro de Texto de Busca
         let atendeBusca = true;
         if (buscaTermo) {
             const desc = (item.descricao || '').toLowerCase();
@@ -247,12 +315,12 @@ function renderizarTabela(filtro = 'TODOS', buscaTermo = '') {
 
 function formatarDataExibicao(dataIso) {
     if (!dataIso) return '-';
-    const partes = dataIso.split('-');
+    const partes = String(dataIso).split('-');
     if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`;
     return dataIso;
 }
 
-/* 7. CONFIRMAÇÃO DE EXCLUSÃO DE REGISTRO */
+/* 8. EXCLUSÃO COM CONFIRMAÇÃO */
 function solicitarExclusao(id) {
     registroParaExcluirId = id;
     document.getElementById('modal-confirmacao').classList.remove('hidden');
@@ -277,7 +345,7 @@ document.getElementById('btn-confirmar-exclusao').addEventListener('click', () =
     }
 });
 
-/* 8. FORMULÁRIO DE CADASTRO DE NOVO REGISTRO */
+/* 9. FORMULÁRIO DE NOVO CADASTRO */
 function configurarFormulario() {
     const form = document.getElementById('form-cadastro');
     form.addEventListener('submit', (e) => {
@@ -302,12 +370,10 @@ function configurarFormulario() {
         registros.unshift(novoItem);
         salvarStorage();
 
-        // Limpar formulário
         form.reset();
         inicializarData();
         atualizarTotalCalculado();
 
-        // Ir para o fluxo e atualizar
         atualizarTudo('TODOS');
         const cardTodos = document.querySelector('.kpi-card[data-filtro="TODOS"]');
         if (cardTodos) cardTodos.click();
