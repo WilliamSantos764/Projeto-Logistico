@@ -1,16 +1,33 @@
-# Gestão de Fluxo de Caixa Pro
+# Sistema de Gestão & Fluxo de Veículos
 
-Sistema completo de Gestão de Fluxo de Caixa com suporte a funcionamento offline, formatação de moeda em tempo real, sugestão de categorias e confirmação de exclusão.
+Este pacote ZIP contém a aplicação completa e atualizada do **Sistema de Gestão & Fluxo de Veículos**, pronta para uso em qualquer navegador web.
 
-## 🚀 Funcionalidades Incluídas:
-1. **Autocomplete/Sugestão de Categorias:** Datalist inteligente que aprende novas categorias cadastradas e oferece atalhos pré-definidos.
-2. **Formatação de Moeda em Tempo Real:** Formatação instantânea em R$ (Real Brasileiro) conforme a digitação no formulário.
-3. **Filtros Rápidos no Fluxo:** Busca por palavra-chave, filtro por categoria e filtro por modalidade (À vista / Parcelado).
-4. **Valor Total e Quantidade de Parcelas:** Visualização do valor total por produto, quantidade de parcelas e valor calculado de cada parcela mensal.
-5. **Confirmação de Exclusão:** Modal interativo para evitar a remoção acidental de registros.
-6. **Suporte Offline (PWA):** Dados persistidos no `localStorage` do navegador e Service Worker para funcionar 100% sem conexão com a internet.
+## 🚀 Funcionalidades Implementadas
 
-## 📂 Como Utilizar:
-1. Descompacte este arquivo ZIP.
-2. Abra o arquivo `index.html` em qualquer navegador web (Chrome, Firefox, Edge, Safari).
-3. Pronto! Não é necessário instalar nenhum servidor de aplicação.
+1. **Indicadores Clicáveis (Interatividade com o Fluxo):**
+   - Ao clicar em **qualquer card de indicador** (ex: *Veículos SPOT Usados*, *Frota Própria*, *Terceiros Fixos* ou *Total*), o sistema redireciona o usuário diretamente para a aba Fluxo.
+   - A tabela é **filtrada instantaneamente** exibindo apenas os veículos daquele indicador.
+   - A página faz um **scroll suave** para focar a tabela no indicador selecionado.
+   - O indicador ativo recebe um destaque de borda e sombra azul.
+
+2. **Detalhamento no Fluxo:**
+   - Exibição de **Valor Unitário**, **Quantidade de Parcelas** e **Valor Total Cadastrado** para cada item.
+
+3. **Autocomplete / Sugestões de Categoria:**
+   - Campo de entrada com datalist inteligente para autopreenchimento rápido de categorias.
+
+4. **Formatação de Moeda (R$) em Tempo Real:**
+   - Input de valor com máscara dinâmica que formata o valor enquanto digita.
+
+5. **Confirmação de Exclusão:**
+   - Modal com alerta de confirmação para evitar perdas acidentais de dados.
+
+6. **Persistência Offline (LocalStorage):**
+   - Funciona completamente sem internet e memoriza seus cadastros no navegador.
+
+---
+
+## 💻 Como Executar
+
+1. Extraia o conteúdo deste arquivo `.zip`.
+2. Dê um duplo clique no arquivo `index.html` para abrir diretamente no Chrome, Edge ou Firefox.

@@ -3,238 +3,198 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestão de Fluxo de Caixa</title>
-    <link rel="stylesheet" href="css/styles.css">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#2563eb">
+    <title>Sistema de Gestão & Fluxo de Veículos</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <header class="app-header">
-        <div class="container header-container">
-            <div class="logo">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="12" y1="1" x2="12" y2="23"></line>
-                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                </svg>
-                <h1>Fluxo de Caixa Pro</h1>
-            </div>
-            <div class="status-badge" id="networkStatus">
-                <span class="status-dot online"></span>
-                <span id="statusText">Online</span>
-            </div>
+    <header class="navbar">
+        <div class="logo">
+            <span class="logo-icon">🚛</span>
+            <h2>Gestão & Fluxo</h2>
+        </div>
+        <div class="status-offline" id="status-offline">
+            <span class="status-dot"></span> <span id="status-text">Online (Dados Salvos Localmente)</span>
         </div>
     </header>
 
-    <main class="container main-content">
-        <!-- Navigation Tabs -->
+    <div class="container">
+        <!-- Navegação por Abas -->
         <nav class="nav-tabs">
-            <button class="tab-btn active" data-tab="fluxo">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-                Aba Fluxo
-            </button>
-            <button class="tab-btn" data-tab="novo">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                Novo Lançamento
-            </button>
-            <button class="tab-btn" data-tab="resumo">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
-                Resumo / Dashboard
-            </button>
+            <button class="tab-btn active" data-tab="dashboard">📊 Dashboard & Indicadores</button>
+            <button class="tab-btn" data-tab="fluxo">📋 Aba Fluxo de Registros</button>
+            <button class="tab-btn" data-tab="novo">➕ Novo Cadastro</button>
         </nav>
 
-        <!-- TAB 1: FLUXO DE CAIXA -->
-        <section id="tab-fluxo" class="tab-content active">
-            <!-- Filter Bar -->
-            <div class="card filter-card">
-                <h3>Filtros Rápidos no Fluxo</h3>
-                <div class="filter-grid">
-                    <div class="form-group">
-                        <label for="searchFilter">Buscar Produto / Descrição</label>
-                        <input type="text" id="searchFilter" placeholder="Ex: Notebook, Mercado...">
+        <!-- ABA 1: DASHBOARD & INDICADORES -->
+        <section id="tab-dashboard" class="tab-content active">
+            <div class="section-title">
+                <h3>Indicadores Operacionais</h3>
+                <p>Clique em qualquer indicador para filtrar instantaneamente os registros correspondentes no fluxo.</p>
+            </div>
+
+            <div class="kpi-grid">
+                <div class="kpi-card active" data-filtro="TODOS">
+                    <div class="kpi-icon">📊</div>
+                    <div class="kpi-info">
+                        <span class="kpi-title">Total de Registros</span>
+                        <h2 class="kpi-value" id="kpi-total">0</h2>
+                        <span class="kpi-sub">Todos os lançamentos</span>
                     </div>
-                    <div class="form-group">
-                        <label for="categoryFilter">Categoria</label>
-                        <select id="categoryFilter">
-                            <option value="">Todas as Categorias</option>
-                        </select>
+                </div>
+
+                <div class="kpi-card" data-filtro="SPOT">
+                    <div class="kpi-icon">🚛</div>
+                    <div class="kpi-info">
+                        <span class="kpi-title">Veículos SPOT Usados</span>
+                        <h2 class="kpi-value" id="kpi-spot">0</h2>
+                        <span class="kpi-sub">Veículos em regime SPOT</span>
                     </div>
-                    <div class="form-group">
-                        <label for="parcelaFilter">Tipo de Pagamento</label>
-                        <select id="parcelaFilter">
-                            <option value="">Todos</option>
-                            <option value="vista">À vista (1x)</option>
-                            <option value="parcelado">Parcelado (>1x)</option>
-                        </select>
+                </div>
+
+                <div class="kpi-card" data-filtro="PROPRIA">
+                    <div class="kpi-icon">🏢</div>
+                    <div class="kpi-info">
+                        <span class="kpi-title">Frota Própria</span>
+                        <h2 class="kpi-value" id="kpi-propria">0</h2>
+                        <span class="kpi-sub">Veículos próprios</span>
                     </div>
-                    <div class="form-group filter-actions">
-                        <button class="btn btn-secondary" id="btnClearFilters">Limpar Filtros</button>
+                </div>
+
+                <div class="kpi-card" data-filtro="TERCEIROS">
+                    <div class="kpi-icon">🤝</div>
+                    <div class="kpi-info">
+                        <span class="kpi-title">Terceiros Fixos</span>
+                        <h2 class="kpi-value" id="kpi-terceiros">0</h2>
+                        <span class="kpi-sub">Contratos fixos</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Total Bar Summary for Flow Tab -->
-            <div class="flow-summary-bar">
-                <div class="summary-metric">
-                    <span class="metric-label">Itens Filtrados</span>
-                    <span class="metric-value" id="filteredCount">0</span>
+            <!-- Resumo Financeiro Rápidos -->
+            <div class="summary-cards">
+                <div class="summary-card">
+                    <span>Valor Total Geral Cumulativo</span>
+                    <h3 id="total-valor-geral">R$ 0,00</h3>
                 </div>
-                <div class="summary-metric highlight">
-                    <span class="metric-label">Valor Total dos Produtos</span>
-                    <span class="metric-value" id="filteredTotalValue">R$ 0,00</span>
-                </div>
-            </div>
-
-            <!-- Table of Products -->
-            <div class="card table-card">
-                <div class="table-responsive">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Data</th>
-                                <th>Produto / Descrição</th>
-                                <th>Categoria</th>
-                                <th>Valor Total</th>
-                                <th>Qtd. Parcelas</th>
-                                <th>Valor/Parcela</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="flowTableBody">
-                            <!-- Items populated dynamically -->
-                        </tbody>
-                    </table>
-                    <div id="emptyState" class="empty-state hidden">
-                        <p>Nenhum lançamento encontrado para os filtros selecionados.</p>
-                    </div>
+                <div class="summary-card">
+                    <span>Média de Parcelamento</span>
+                    <h3 id="media-parcelas">0x</h3>
                 </div>
             </div>
         </section>
 
-        <!-- TAB 2: NOVO LANÇAMENTO -->
-        <section id="tab-novo" class="tab-content">
-            <div class="card form-card">
-                <h2>Cadastrar Novo Produto / Lançamento</h2>
-                <form id="productForm">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="productName">Descrição do Produto *</label>
-                            <input type="text" id="productName" required placeholder="Ex: Smart TV 50''">
-                        </div>
+        <!-- ABA 2: FLUXO DE REGISTROS -->
+        <section id="tab-fluxo" class="tab-content">
+            <div class="section-title">
+                <h3>Aba Fluxo de Lançamentos</h3>
+                <p>Acompanhamento detalhado com valor total por item e número de parcelas.</p>
+            </div>
 
+            <!-- Filtros Rápidos no Fluxo -->
+            <div class="filter-bar">
+                <div class="search-box">
+                    <input type="text" id="input-busca" placeholder="🔍 Buscar por descrição, veículo ou categoria...">
+                </div>
+                <div class="quick-filters">
+                    <span class="filter-label">Filtro Ativo:</span>
+                    <span id="tag-filtro-ativo" class="badge-filter">Todos os Registros</span>
+                    <button id="btn-reset-filtro" class="btn-sm btn-outline">Limpar Filtros</button>
+                </div>
+            </div>
+
+            <!-- Tabela de Fluxo -->
+            <div class="table-container" id="secao-tabela">
+                <table class="data-table" id="tabela-fluxo">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Descrição / Veículo</th>
+                            <th>Categoria</th>
+                            <th>Valor Unitário</th>
+                            <th>Qtd. Parcelas</th>
+                            <th>Valor Total</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-fluxo">
+                        <!-- Conteúdo dinâmico via JS -->
+                    </tbody>
+                </table>
+                <div id="empty-state" class="empty-state hidden">
+                    <p>Nenhum registro encontrado para o filtro selecionado.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ABA 3: NOVO CADASTRO -->
+        <section id="tab-novo" class="tab-content">
+            <div class="form-container">
+                <h3>Cadastrar Novo Item / Veículo no Fluxo</h3>
+                <form id="form-cadastro">
+                    <div class="form-row">
                         <div class="form-group">
-                            <label for="productCategory">Categoria * (Autocomplete/Sugestão)</label>
-                            <input type="text" id="productCategory" list="categoriesDatalist" required placeholder="Digite ou selecione a categoria">
-                            <datalist id="categoriesDatalist">
-                                <!-- Populated dynamically + defaults -->
+                            <label for="descricao">Descrição / Modelo do Veículo</label>
+                            <input type="text" id="descricao" required placeholder="Ex: Scania R450 - SPOT Usado">
+                        </div>
+                        <div class="form-group">
+                            <label for="categoria">Categoria (Sugestão Autocomplete)</label>
+                            <input type="text" id="categoria" list="sugestoes-categoria" required placeholder="Digite ou selecione...">
+                            <datalist id="sugestoes-categoria">
+                                <option value="SPOT - Usado">
+                                <option value="SPOT - Novo">
+                                <option value="Frota Própria">
+                                <option value="Terceiros Fixos">
+                                <option value="Manutenção">
+                                <option value="Combustível">
                             </datalist>
                         </div>
+                    </div>
 
+                    <div class="form-row">
                         <div class="form-group">
-                            <label for="productValue">Valor Total (R$) * (Formatação em Tempo Real)</label>
-                            <input type="text" id="productValue" required placeholder="R$ 0,00" autocomplete="off">
+                            <label for="valor-unitario">Valor Unitário (R$ - Formatação em Tempo Real)</label>
+                            <input type="text" id="valor-unitario" placeholder="R$ 0,00" required>
                         </div>
-
                         <div class="form-group">
-                            <label for="productInstallments">Quantidade de Parcelas *</label>
-                            <select id="productInstallments" required>
-                                <option value="1">1x (À vista)</option>
-                                <option value="2">2x</option>
-                                <option value="3">3x</option>
-                                <option value="4">4x</option>
-                                <option value="5">5x</option>
-                                <option value="6">6x</option>
-                                <option value="10">10x</option>
-                                <option value="12">12x</option>
-                                <option value="18">18x</option>
-                                <option value="24">24x</option>
-                                <option value="36">36x</option>
-                                <option value="48">48x</option>
-                                <option value="72">72x</option>
-                            </select>
+                            <label for="qtd-parcelas">Quantidade de Parcelas</label>
+                            <input type="number" id="qtd-parcelas" min="1" max="120" value="1" required>
                         </div>
+                    </div>
 
+                    <div class="form-row">
                         <div class="form-group">
-                            <label for="productDate">Data do Lançamento *</label>
-                            <input type="date" id="productDate" required>
+                            <label for="valor-total-calculado">Valor Total Cadastrado (Calculado)</label>
+                            <input type="text" id="valor-total-calculado" readonly class="input-readonly" value="R$ 0,00">
                         </div>
-
                         <div class="form-group">
-                            <label for="calculatedInstallment">Valor Calculado por Parcela</label>
-                            <input type="text" id="calculatedInstallment" readonly placeholder="R$ 0,00" class="readonly-input">
+                            <label for="data-registro">Data do Registro</label>
+                            <input type="date" id="data-registro" required>
                         </div>
                     </div>
 
                     <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" id="btnResetForm">Limpar Campos</button>
-                        <button type="submit" class="btn btn-primary">Salvar no Fluxo</button>
+                        <button type="submit" class="btn btn-primary">💾 Salvar Registro no Fluxo</button>
+                        <button type="reset" class="btn btn-secondary">Limpar</button>
                     </div>
                 </form>
             </div>
         </section>
+    </div>
 
-        <!-- TAB 3: RESUMO / DASHBOARD -->
-        <section id="tab-resumo" class="tab-content">
-            <div class="dashboard-grid">
-                <div class="card dash-card">
-                    <span class="dash-icon">💰</span>
-                    <div class="dash-info">
-                        <h4>Total Geral Cadastrado</h4>
-                        <p class="dash-value" id="dashTotalValue">R$ 0,00</p>
-                    </div>
-                </div>
-                <div class="card dash-card">
-                    <span class="dash-icon">📦</span>
-                    <div class="dash-info">
-                        <h4>Total de Produtos</h4>
-                        <p class="dash-value" id="dashTotalCount">0</p>
-                    </div>
-                </div>
-                <div class="card dash-card">
-                    <span class="dash-icon">💳</span>
-                    <div class="dash-info">
-                        <h4>Compras Parceladas</h4>
-                        <p class="dash-value" id="dashParceladoCount">0</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card summary-breakdown">
-                <h3>Resumo por Categoria</h3>
-                <div id="categoryBreakdown" class="breakdown-list">
-                    <!-- Populated dynamically -->
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <!-- Modal Confirmação de Exclusão -->
-    <div class="modal-overlay hidden" id="deleteModal">
-        <div class="modal-card">
-            <div class="modal-header">
-                <h3>Confirmação de Exclusão</h3>
-            </div>
-            <div class="modal-body">
-                <p>Tem certeza que deseja remover este produto do fluxo de caixa?</p>
-                <div class="modal-item-details" id="deleteModalDetails"></div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" id="btnCancelDelete">Cancelar</button>
-                <button class="btn btn-danger" id="btnConfirmDelete">Excluir</button>
+    <!-- Modal de Confirmação de Exclusão -->
+    <div id="modal-confirmacao" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-icon">⚠️</div>
+            <h3>Confirmar Exclusão</h3>
+            <p>Tem certeza de que deseja excluir este registro do fluxo? Esta ação é salva imediatamente.</p>
+            <div class="modal-actions">
+                <button id="btn-confirmar-exclusao" class="btn btn-danger">Sim, Excluir</button>
+                <button id="btn-cancelar-exclusao" class="btn btn-secondary">Cancelar</button>
             </div>
         </div>
     </div>
 
-    <!-- Toast Notification -->
-    <div id="toast" class="toast hidden"></div>
-
-    <script src="js/app.js"></script>
-    <script>
-        // Service Worker registration for offline support
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('js/sw.js')
-                .then(() => console.log('Service Worker Registrado com sucesso!'))
-                .catch(err => console.log('Erro ao registrar Service Worker:', err));
-        }
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
