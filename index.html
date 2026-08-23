@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Gestão de Frota & SPOTS</title>
+    <!-- Chart.js para gráficos e SheetJS (xlsx) para leitura de Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <header class="navbar">
+        <div class="logo">
+            <h1>🚚 Gestão Logística & SPOTS</h1>
+        </div>
+        <div class="subtitle">
+            Análise Automatizada de Frota Própria, Terceiros Fixos e SPOTS
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- ÁREA DE UPLOAD E FILTROS -->
+        <section class="card upload-card">
+            <h2>📁 Importar Planilha de Relatório</h2>
+            <p>Selecione seu arquivo Excel (.xlsx / .xls) para processar os dados de frota.</p>
+            <div class="file-input-wrapper">
+                <input type="file" id="excel-file" accept=".xlsx, .xls">
+            </div>
+
+            <div id="filter-section" class="filters-container" style="display:none;">
+                <hr>
+                <h3>🗓️ Filtros de Análise</h3>
+                <div class="filter-grid">
+                    <div class="filter-group">
+                        <label for="start-date">Data Inicial:</label>
+                        <input type="date" id="start-date">
+                    </div>
+                    <div class="filter-group">
+                        <label for="end-date">Data Final:</label>
+                        <input type="date" id="end-date">
+                    </div>
+                    <div class="filter-group button-group">
+                        <button id="btn-apply-filters" class="btn btn-primary">Aplicar Filtros</button>
+                        <button id="btn-export" class="btn btn-success">📥 Exportar para Excel</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CARDS DE INDICADORES (KPIs) -->
+        <section id="kpi-section" class="kpi-grid" style="display:none;">
+            <div class="kpi-card kpi-blue">
+                <h3>Total de Alocações</h3>
+                <span id="kpi-total" class="kpi-number">0</span>
+            </div>
+            <div class="kpi-card kpi-red">
+                <h3>Veículos SPOT Usados</h3>
+                <span id="kpi-spot" class="kpi-number">0</span>
+                <small id="kpi-spot-pct">0% do total</small>
+            </div>
+            <div class="kpi-card kpi-green">
+                <h3>Frota Própria (Casa)</h3>
+                <span id="kpi-propt" class="kpi-number">0</span>
+            </div>
+            <div class="kpi-card kpi-orange">
+                <h3>Terceiros Fixos</h3>
+                <span id="kpi-terc" class="kpi-number">0</span>
+            </div>
+        </section>
+
+        <!-- ÁREA DOS GRÁFICOS -->
+        <section id="charts-section" class="charts-grid" style="display:none;">
+            <div class="card chart-card">
+                <h3>Divisão por Categoria de Frota</h3>
+                <canvas id="chart-categories"></canvas>
+            </div>
+            <div class="card chart-card">
+                <h3>Uso de SPOTS ao Longo do Tempo</h3>
+                <canvas id="chart-timeline"></canvas>
+            </div>
+        </section>
+
+        <!-- TABELA DE DADOS -->
+        <section id="table-section" class="card" style="display:none;">
+            <h3>📋 Registros Detalhados</h3>
+            <div class="table-responsive">
+                <table id="data-table">
+                    <thead>
+                        <tr>
+                            <th>Aba/Data</th>
+                            <th>Categoria</th>
+                            <th>Placa</th>
+                            <th>Motorista</th>
+                            <th>Ajudante/Tel</th>
+                            <th>Embarque</th>
+                            <th>Cidades/Rota</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 - Painel Logístico de Frota & SPOTS | Compatível com GitHub Pages</p>
+    </footer>
+
+    <script src="js/script.js"></script>
+</body>
+</html>
