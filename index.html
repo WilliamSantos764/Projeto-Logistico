@@ -11,6 +11,9 @@
       :root{--navy:#0d2b45;--blue:#1688cf;--cyan:#43c1d2;--ink:#152536;--muted:#6b7b89;--line:#dce6eb;--page:#f3f7f8;--white:#fff}*{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--ink);font-family:Arial,sans-serif}.topbar{background:var(--navy);color:#fff;padding:20px max(24px,calc((100% - 1220px)/2));display:flex;justify-content:space-between}.brand{color:#fff;text-decoration:none;font-size:21px}.brand b{color:var(--cyan)}main{max-width:1220px;margin:auto;padding:32px 24px}.hero{background:linear-gradient(115deg,#0c2b45,#145979);color:#fff;border-radius:18px;padding:34px;display:flex;justify-content:space-between;gap:20px}.hero h1{font-size:36px;margin:8px 0}.hero-copy{line-height:1.5}.hero-badge,.import-panel,.kpi,.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px}.hero-badge{color:var(--ink);min-width:230px}.import-panel{margin-top:20px}.dropzone{border:2px dashed #afc7d2;border-radius:12px;padding:22px;display:flex;gap:18px;align-items:center}.primary-btn,.secondary-btn{border:0;border-radius:8px;padding:11px 15px;background:var(--blue);color:#fff;cursor:pointer}.secondary-btn{background:#edf4f7;color:var(--navy)}.import-actions{display:flex;gap:14px;margin-top:12px;align-items:center}.hidden{display:none!important}.dashboard{margin-top:30px}.section-heading,.report-toolbar,.card-heading{display:flex;justify-content:space-between;gap:15px;align-items:center}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:15px 0}.kpi{border-top:4px solid var(--cyan)}.kpi strong{display:block;font-size:32px;margin:8px 0}.kpi-label,.kpi small,.card p{color:var(--muted)}.layout-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:16px}.bar-chart{display:flex;gap:8px;align-items:end;min-height:185px}.bar{background:var(--blue)}.table-wrap{overflow:auto;max-height:460px}table{border-collapse:collapse;width:100%;min-width:820px}th,td{padding:12px;border-bottom:1px solid var(--line);text-align:left}th{background:#f6f9fa}.filters{display:flex;gap:8px;flex-wrap:wrap}.filters input,.filters select{padding:8px;border:1px solid var(--line);border-radius:6px}.report-card{margin-top:16px;padding:0}.report-toolbar{padding:16px}.audit-card{margin-top:16px;padding:14px;background:#ecf6f9;border-radius:10px}.toast{position:fixed;right:20px;bottom:20px;background:var(--navy);color:#fff;padding:12px;border-radius:8px;opacity:0}.toast.show{opacity:1}@media(max-width:800px){.hero,.layout-grid{display:block}.hero-badge{margin-top:15px}.kpis{grid-template-columns:repeat(2,1fr)}.dropzone,.section-heading,.report-toolbar{flex-wrap:wrap}}
     </style>
     <link rel="stylesheet" href="style.css" />
+    <style>
+      .dashboard-block{background:#edf4f7;border:1px solid #dbe8ed;border-radius:17px;padding:18px;margin-bottom:16px}.staff-block{background:#f7f8f5}.block-heading{display:flex;justify-content:space-between;align-items:end;margin-bottom:13px}.block-heading h3{margin:0;font-size:16px;color:#0d2b45}.block-heading p{margin:4px 0 0;font-size:12px;color:#6b7b89}.block-heading>span{font-size:11px;color:#1688cf;font-weight:700}.replace-note{background:#fff5dc;color:#956500;border-radius:999px;padding:5px 9px;font-size:10px;font-weight:700}@media(max-width:700px){.block-heading{align-items:start;flex-direction:column;gap:5px}.dashboard-block{padding:12px}.replace-note{width:100%;text-align:center}}
+    </style>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   </head>
   <body>
@@ -49,6 +52,7 @@
           <div class="import-actions">
             <label class="secondary-btn" for="folderInput">Selecionar uma pasta<input id="folderInput" type="file" accept=".xlsx,.xls,.xlsm,.xlsb,.csv" webkitdirectory multiple hidden /></label>
             <span id="importStatus">Nenhuma planilha importada</span>
+            <span class="replace-note">Nova importação substitui a anterior</span>
             <button class="text-btn danger" id="clearData" type="button" hidden>Limpar dados</button>
           </div>
         </section>
@@ -59,16 +63,25 @@
             <button class="secondary-btn" id="exportCsv" type="button">Baixar relatório completo</button>
           </div>
 
-          <div class="kpis">
+          <section class="dashboard-block">
+            <div class="block-heading"><div><h3>Operação da frota</h3><p>Utilizações identificadas nas rotas importadas</p></div><span>Clique nos indicadores para detalhar</span></div>
+          <div class="kpis fleet-kpis">
             <button class="kpi accent" data-detail="all"><span class="kpi-label">Veículos-dia em rota</span><strong id="metricUses">0</strong><small>operações com rota ou embarque</small></button>
             <button class="kpi house" data-detail="COOPERRITA"><span class="kpi-label">Carros da casa</span><strong id="metricHouse">0</strong><small>clique para ver os dados</small></button>
             <button class="kpi fixed" data-detail="TERCEIROS FIXOS"><span class="kpi-label">Terceiros fixos</span><strong id="metricFixed">0</strong><small>clique para ver os dados</small></button>
             <button class="kpi spot" data-detail="SPOT"><span class="kpi-label">SPOT</span><strong id="metricSpot">0</strong><small>clique para ver os dados</small></button>
+          </div>
+          </section>
+
+          <section class="dashboard-block staff-block">
+            <div class="block-heading"><div><h3>Disponibilidade da equipe</h3><p>Afastamentos e pernoites registrados no período</p></div></div>
+          <div class="kpis staff-kpis">
             <button class="kpi leave" data-detail="FOLGA"><span class="kpi-label">Folgas</span><strong id="metricLeaves">0</strong><small>clique para ver os registros</small></button>
             <button class="kpi vacation" data-detail="FÉRIAS"><span class="kpi-label">Férias</span><strong id="metricVacation">0</strong><small>clique para ver os registros</small></button>
             <button class="kpi medical" data-detail="ATESTADO"><span class="kpi-label">Atestados</span><strong id="metricMedical">0</strong><small>clique para ver os registros</small></button>
             <button class="kpi" data-detail="OVERNIGHT"><span class="kpi-label">Pernoites</span><strong id="metricOvernight">0</strong><small>clique para ver as rotas</small></button>
           </div>
+          </section>
           <article class="card cost-card"><h3>Gasto por tipo de frota</h3><p>Informe o valor pago por uso. O sistema multiplica automaticamente pelo total de vezes que a frota foi utilizada.</p><div class="cost-form"><select id="rateFleet"><option value="COOPERRITA">Carros da casa</option><option value="TERCEIROS FIXOS">Terceiros fixos</option><option value="SPOT">SPOT</option></select><input id="rateValue" type="number" min="0" step="0.01" placeholder="Valor pago por uso" /><button class="primary-btn" id="saveRate" type="button">Calcular gasto</button></div><div id="costSummary" class="cost-summary"></div></article>
 
           <div class="layout-grid">

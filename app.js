@@ -85,9 +85,15 @@ function extractSheet(rows, source, sheet) {
   const detail = unknownHeaders ? ` ${unknownHeaders} cabeçalho(s) sem categoria foram ignorados.` : '';
   return { records, absences, message: headers ? `${sheet}: ${records.length} rota(s), ${absences.length} afastamento(s), ${headers} cabeçalho(s) lido(s).${detail}` : `${sheet}: nenhum cabeçalho de Placa/Motorista reconhecido.` };
 }
+function resetImportedData() {
+  state.records = []; state.absences = []; state.audit = []; state.loadedKeys.clear();
+  $('dashboard').classList.add('hidden'); $('indicatorView').classList.add('hidden');
+  $('searchInput').value = ''; $('dateFilter').value = ''; $('fleetFilter').value = ''; $('plateFilter').value = ''; $('employeeFilter').value = ''; $('absenceFilter').value = '';
+}
 async function readFiles(files) {
   if (!files.length) return;
   if (!window.XLSX) { showToast('Não foi possível carregar o leitor de Excel. Verifique sua conexão e tente novamente.'); return; }
+  resetImportedData(); $('importStatus').textContent = 'Substituindo dados e processando o novo Excel...';
   let processed = 0;
   for (const file of files) {
     const fileKey = `${file.name}-${file.size}-${file.lastModified}`; if (state.loadedKeys.has(fileKey)) continue;
@@ -97,7 +103,7 @@ async function readFiles(files) {
       state.loadedKeys.add(fileKey); processed++; state.audit.unshift(`${file.name}: análise concluída (${fileRecords} rotas; ${fileAbsences} afastamentos).`);
     } catch (error) { state.audit.unshift(`${file.name}: não foi possível ler o arquivo (${error.message}).`); }
   }
-  if (!processed) { showToast('Esses arquivos já foram importados.'); return; } render(); showToast(`${processed} arquivo(s) processado(s) com sucesso.`);
+  if (!processed) { $('importStatus').textContent = 'Nenhum arquivo pôde ser processado'; showToast('Não foi possível carregar os novos dados.'); return; } render(); showToast(`Dados anteriores removidos. ${processed} arquivo(s) carregado(s).`);
 }
 function sortedRecords() { return [...state.records].sort((a, b) => String(a.date).localeCompare(String(b.date), 'pt-BR') || a.fleet.localeCompare(b.fleet) || a.plate.localeCompare(b.plate)); }
 function sortedAbsences() { return [...state.absences].sort((a, b) => String(a.date).localeCompare(String(b.date), 'pt-BR') || a.employee.localeCompare(b.employee)); }
