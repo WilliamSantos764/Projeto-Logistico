@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0d2b45" />
+    <title>Frota Insight | Logística</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      /* Visual de segurança: mantém o painel bonito mesmo ao abrir só este arquivo. */
+      :root{--navy:#0d2b45;--blue:#1688cf;--cyan:#43c1d2;--ink:#152536;--muted:#6b7b89;--line:#dce6eb;--page:#f3f7f8;--white:#fff}*{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--ink);font-family:Arial,sans-serif}.topbar{background:var(--navy);color:#fff;padding:20px max(24px,calc((100% - 1220px)/2));display:flex;justify-content:space-between}.brand{color:#fff;text-decoration:none;font-size:21px}.brand b{color:var(--cyan)}main{max-width:1220px;margin:auto;padding:32px 24px}.hero{background:linear-gradient(115deg,#0c2b45,#145979);color:#fff;border-radius:18px;padding:34px;display:flex;justify-content:space-between;gap:20px}.hero h1{font-size:36px;margin:8px 0}.hero-copy{line-height:1.5}.hero-badge,.import-panel,.kpi,.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px}.hero-badge{color:var(--ink);min-width:230px}.import-panel{margin-top:20px}.dropzone{border:2px dashed #afc7d2;border-radius:12px;padding:22px;display:flex;gap:18px;align-items:center}.primary-btn,.secondary-btn{border:0;border-radius:8px;padding:11px 15px;background:var(--blue);color:#fff;cursor:pointer}.secondary-btn{background:#edf4f7;color:var(--navy)}.import-actions{display:flex;gap:14px;margin-top:12px;align-items:center}.hidden{display:none!important}.dashboard{margin-top:30px}.section-heading,.report-toolbar,.card-heading{display:flex;justify-content:space-between;gap:15px;align-items:center}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:15px 0}.kpi{border-top:4px solid var(--cyan)}.kpi strong{display:block;font-size:32px;margin:8px 0}.kpi-label,.kpi small,.card p{color:var(--muted)}.layout-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:16px}.bar-chart{display:flex;gap:8px;align-items:end;min-height:185px}.bar{background:var(--blue)}.table-wrap{overflow:auto;max-height:460px}table{border-collapse:collapse;width:100%;min-width:820px}th,td{padding:12px;border-bottom:1px solid var(--line);text-align:left}th{background:#f6f9fa}.filters{display:flex;gap:8px;flex-wrap:wrap}.filters input,.filters select{padding:8px;border:1px solid var(--line);border-radius:6px}.report-card{margin-top:16px;padding:0}.report-toolbar{padding:16px}.audit-card{margin-top:16px;padding:14px;background:#ecf6f9;border-radius:10px}.toast{position:fixed;right:20px;bottom:20px;background:var(--navy);color:#fff;padding:12px;border-radius:8px;opacity:0}.toast.show{opacity:1}@media(max-width:800px){.hero,.layout-grid{display:block}.hero-badge{margin-top:15px}.kpis{grid-template-columns:repeat(2,1fr)}.dropzone,.section-heading,.report-toolbar{flex-wrap:wrap}}
+    </style>
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#top" aria-label="Frota Insight">
+          <span class="brand-mark" aria-hidden="true">↗</span>
+          <span>Frota <b>Insight</b></span>
+        </a>
+        <span class="topbar-note">Análise de utilização de frota</span>
+      </header>
+
+      <main id="top">
+        <section class="hero">
+          <div>
+            <p class="eyebrow">CONTROLE COMPLETO DA OPERAÇÃO</p>
+            <h1>Entenda toda a sua <em>frota</em> em um único painel.</h1>
+            <p class="hero-copy">Importe as planilhas diárias. O sistema separa carros da casa, terceiros fixos, SPOTs e os afastamentos da equipe automaticamente.</p>
+          </div>
+          <div class="hero-badge">
+            <span>✓</span>
+            <div><strong>Leitura inteligente</strong><small>Frota, rotas e disponibilidade da equipe</small></div>
+          </div>
+        </section>
+
+        <section class="import-panel" aria-label="Importar planilhas">
+          <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Selecionar planilhas">
+            <input id="fileInput" type="file" accept=".xlsx,.xls,.xlsm,.xlsb,.csv" multiple hidden />
+            <div class="upload-icon" aria-hidden="true">↑</div>
+            <div>
+              <h2>Importar planilhas</h2>
+              <p>Arraste os arquivos aqui ou selecione no computador.</p>
+            </div>
+            <button class="primary-btn" id="chooseFiles" type="button">Selecionar arquivos</button>
+          </div>
+          <div class="import-actions">
+            <label class="secondary-btn" for="folderInput">Selecionar uma pasta<input id="folderInput" type="file" accept=".xlsx,.xls,.xlsm,.xlsb,.csv" webkitdirectory multiple hidden /></label>
+            <span id="importStatus">Nenhuma planilha importada</span>
+            <button class="text-btn danger" id="clearData" type="button" hidden>Limpar dados</button>
+          </div>
+        </section>
+
+        <section id="dashboard" class="dashboard hidden" aria-live="polite">
+          <div class="section-heading">
+            <div><p class="eyebrow">RESULTADO DA ANÁLISE</p><h2>Resumo do período</h2></div>
+            <button class="secondary-btn" id="exportCsv" type="button">Baixar relatório completo</button>
+          </div>
+
+          <div class="kpis">
+            <button class="kpi accent" data-detail="all"><span class="kpi-label">Veículos-dia em rota</span><strong id="metricUses">0</strong><small>operações com rota ou embarque</small></button>
+            <button class="kpi house" data-detail="COOPERRITA"><span class="kpi-label">Carros da casa</span><strong id="metricHouse">0</strong><small>clique para ver os dados</small></button>
+            <button class="kpi fixed" data-detail="TERCEIROS FIXOS"><span class="kpi-label">Terceiros fixos</span><strong id="metricFixed">0</strong><small>clique para ver os dados</small></button>
+            <button class="kpi spot" data-detail="SPOT"><span class="kpi-label">SPOT</span><strong id="metricSpot">0</strong><small>clique para ver os dados</small></button>
+            <button class="kpi leave" data-detail="FOLGA"><span class="kpi-label">Folgas</span><strong id="metricLeaves">0</strong><small>clique para ver os registros</small></button>
+            <button class="kpi vacation" data-detail="FÉRIAS"><span class="kpi-label">Férias</span><strong id="metricVacation">0</strong><small>clique para ver os registros</small></button>
+            <button class="kpi medical" data-detail="ATESTADO"><span class="kpi-label">Atestados</span><strong id="metricMedical">0</strong><small>clique para ver os registros</small></button>
+            <button class="kpi" data-detail="OVERNIGHT"><span class="kpi-label">Pernoites</span><strong id="metricOvernight">0</strong><small>clique para ver as rotas</small></button>
+          </div>
+          <article class="card cost-card"><h3>Gasto por tipo de frota</h3><p>Informe o valor pago por uso. O sistema multiplica automaticamente pelo total de vezes que a frota foi utilizada.</p><div class="cost-form"><select id="rateFleet"><option value="COOPERRITA">Carros da casa</option><option value="TERCEIROS FIXOS">Terceiros fixos</option><option value="SPOT">SPOT</option></select><input id="rateValue" type="number" min="0" step="0.01" placeholder="Valor pago por uso" /><button class="primary-btn" id="saveRate" type="button">Calcular gasto</button></div><div id="costSummary" class="cost-summary"></div></article>
+
+          <div class="layout-grid">
+            <article class="card chart-card">
+              <div class="card-heading"><div><h3>Uso da frota por dia</h3><p>Carros da casa, terceiros fixos e SPOT</p></div><div class="chart-legend"><span class="legend house-dot">Casa</span><span class="legend fixed-dot">Fixos</span><span class="legend spot-dot">SPOT</span></div></div>
+              <div id="dailyChart" class="bar-chart"></div>
+              <p id="noChart" class="empty-mini hidden">Não há registros utilizados para exibir.</p>
+            </article>
+            <article class="card ranking-card">
+              <div class="card-heading"><div><h3>Veículos mais utilizados</h3><p>Ranking da frota completa</p></div></div>
+              <ol id="vehicleRanking" class="ranking"></ol>
+            </article>
+          </div>
+
+          <article class="card report-card">
+            <div class="report-toolbar">
+              <div><h3>Detalhamento das utilizações</h3><p id="reportCount">0 registros</p></div>
+              <div class="filters">
+                <label><span>Buscar</span><input id="searchInput" type="search" placeholder="Placa, motorista, cidade..." /></label>
+                <label><span>Dia</span><select id="dateFilter"><option value="">Todos os dias</option></select></label>
+                <label><span>Frota</span><select id="fleetFilter"><option value="">Todas as frotas</option></select></label>
+                <label><span>Placa</span><select id="plateFilter"><option value="">Todas as placas</option></select></label>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Data / aba</th><th>Frota</th><th>Placa</th><th>Motorista</th><th>Embarque</th><th>Cidades / rota</th><th>Arquivo</th></tr></thead>
+                <tbody id="usageTable"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="card report-card absences-card">
+            <div class="report-toolbar">
+              <div><h3>Folgas, férias e atestados</h3><p id="absenceCount">0 ocorrências no período</p></div>
+              <div class="filters">
+                <label><span>Funcionário</span><select id="employeeFilter"><option value="">Todos</option></select></label>
+                <label><span>Tipo</span><select id="absenceFilter"><option value="">Todos os tipos</option></select></label>
+              </div>
+            </div>
+            <div class="table-wrap small-table-wrap">
+              <table>
+                <thead><tr><th>Data / aba</th><th>Funcionário</th><th>Ocorrência</th><th>Arquivo</th></tr></thead>
+                <tbody id="absenceTable"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="audit-card" id="auditCard">
+            <div><strong>Leitura das planilhas</strong><span id="auditSummary"></span></div>
+            <details><summary>Ver abas processadas e avisos</summary><ul id="auditList"></ul></details>
+          </article>
+        </section>
+        <section id="indicatorView" class="card indicator-view hidden"><button class="secondary-btn" id="backDashboard" type="button">← Voltar ao painel</button><div class="indicator-heading"><div><p class="eyebrow">DETALHAMENTO DO INDICADOR</p><h2 id="indicatorTitle">Detalhamento</h2><p id="indicatorSubtitle"></p></div><strong id="indicatorTotal"></strong></div><div class="table-wrap"><table><thead><tr><th>Data</th><th>Frota</th><th>Placa</th><th>Motorista</th><th>Embarque</th><th>Rota</th><th>Custo</th></tr></thead><tbody id="indicatorTable"></tbody></table></div></section>
+      </main>
+      <footer>Frota Insight • Os dados são processados somente no seu navegador.</footer>
+    </div>
+    <div id="toast" class="toast" role="status"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
