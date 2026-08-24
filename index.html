@@ -4,16 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0d2b45" />
-    <title>SPOT Insight | Logística</title>
+    <title>Frota Insight | Logística</title>
     <link rel="stylesheet" href="style.css" />
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
-        <a class="brand" href="#top" aria-label="SPOT Insight">
+        <a class="brand" href="#top" aria-label="Frota Insight">
           <span class="brand-mark" aria-hidden="true">↗</span>
-          <span>SPOT <b>Insight</b></span>
+          <span>Frota <b>Insight</b></span>
         </a>
         <span class="topbar-note">Análise de utilização de frota</span>
       </header>
@@ -21,13 +21,13 @@
       <main id="top">
         <section class="hero">
           <div>
-            <p class="eyebrow">CONTROLE DE FROTA TERCEIRIZADA</p>
-            <h1>Veja onde e quando seus <em>SPOTs</em> foram usados.</h1>
-            <p class="hero-copy">Importe uma ou várias planilhas. O sistema identifica as seções SPOT mesmo quando os cabeçalhos mudam de posição entre as abas.</p>
+            <p class="eyebrow">CONTROLE COMPLETO DA OPERAÇÃO</p>
+            <h1>Entenda toda a sua <em>frota</em> em um único painel.</h1>
+            <p class="hero-copy">Importe as planilhas diárias. O sistema separa carros da casa, terceiros fixos, SPOTs e os afastamentos da equipe automaticamente.</p>
           </div>
           <div class="hero-badge">
             <span>✓</span>
-            <div><strong>Leitura inteligente</strong><small>Excel .xlsx, .xls, .xlsm e .csv</small></div>
+            <div><strong>Leitura inteligente</strong><small>Frota, rotas e disponibilidade da equipe</small></div>
           </div>
         </section>
 
@@ -51,24 +51,28 @@
         <section id="dashboard" class="dashboard hidden" aria-live="polite">
           <div class="section-heading">
             <div><p class="eyebrow">RESULTADO DA ANÁLISE</p><h2>Resumo do período</h2></div>
-            <button class="secondary-btn" id="exportCsv" type="button">Baixar relatório CSV</button>
+            <button class="secondary-btn" id="exportCsv" type="button">Baixar relatório completo</button>
           </div>
 
           <div class="kpis">
-            <article class="kpi accent"><span class="kpi-label">Utilizações de SPOT</span><strong id="metricUses">0</strong><small>viagens/registros carregados</small></article>
-            <article class="kpi"><span class="kpi-label">Veículos SPOT únicos</span><strong id="metricVehicles">0</strong><small>placas diferentes no período</small></article>
-            <article class="kpi"><span class="kpi-label">Dias com SPOT</span><strong id="metricDays">0</strong><small>abas/dias com uso identificado</small></article>
-            <article class="kpi"><span class="kpi-label">Embarques atendidos</span><strong id="metricShipments">0</strong><small>números de embarque informados</small></article>
+            <article class="kpi accent"><span class="kpi-label">Veículos-dia em rota</span><strong id="metricUses">0</strong><small>operações com rota ou embarque</small></article>
+            <article class="kpi house"><span class="kpi-label">Carros da casa</span><strong id="metricHouse">0</strong><small>utilizações COOPERRITA</small></article>
+            <article class="kpi fixed"><span class="kpi-label">Terceiros fixos</span><strong id="metricFixed">0</strong><small>utilizações no período</small></article>
+            <article class="kpi spot"><span class="kpi-label">SPOT</span><strong id="metricSpot">0</strong><small>utilizações no período</small></article>
+            <article class="kpi leave"><span class="kpi-label">Folgas</span><strong id="metricLeaves">0</strong><small>dias de folga registrados</small></article>
+            <article class="kpi vacation"><span class="kpi-label">Férias</span><strong id="metricVacation">0</strong><small>dias de férias registrados</small></article>
+            <article class="kpi medical"><span class="kpi-label">Atestados</span><strong id="metricMedical">0</strong><small>dias de atestado registrados</small></article>
+            <article class="kpi"><span class="kpi-label">Pernoites</span><strong id="metricOvernight">0</strong><small>rotas com pernoite</small></article>
           </div>
 
           <div class="layout-grid">
             <article class="card chart-card">
-              <div class="card-heading"><div><h3>Uso por dia</h3><p>Quantidade de SPOTs utilizados</p></div></div>
+              <div class="card-heading"><div><h3>Uso da frota por dia</h3><p>Carros da casa, terceiros fixos e SPOT</p></div><div class="chart-legend"><span class="legend house-dot">Casa</span><span class="legend fixed-dot">Fixos</span><span class="legend spot-dot">SPOT</span></div></div>
               <div id="dailyChart" class="bar-chart"></div>
               <p id="noChart" class="empty-mini hidden">Não há registros utilizados para exibir.</p>
             </article>
             <article class="card ranking-card">
-              <div class="card-heading"><div><h3>Veículos mais utilizados</h3><p>Ranking por quantidade de usos</p></div></div>
+              <div class="card-heading"><div><h3>Veículos mais utilizados</h3><p>Ranking da frota completa</p></div></div>
               <ol id="vehicleRanking" class="ranking"></ol>
             </article>
           </div>
@@ -79,13 +83,30 @@
               <div class="filters">
                 <label><span>Buscar</span><input id="searchInput" type="search" placeholder="Placa, motorista, cidade..." /></label>
                 <label><span>Dia</span><select id="dateFilter"><option value="">Todos os dias</option></select></label>
+                <label><span>Frota</span><select id="fleetFilter"><option value="">Todas as frotas</option></select></label>
                 <label><span>Placa</span><select id="plateFilter"><option value="">Todas as placas</option></select></label>
               </div>
             </div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Data / aba</th><th>Placa</th><th>Motorista</th><th>Embarque</th><th>Cidades / rota</th><th>Arquivo</th></tr></thead>
+                <thead><tr><th>Data / aba</th><th>Frota</th><th>Placa</th><th>Motorista</th><th>Embarque</th><th>Cidades / rota</th><th>Arquivo</th></tr></thead>
                 <tbody id="usageTable"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="card report-card absences-card">
+            <div class="report-toolbar">
+              <div><h3>Folgas, férias e atestados</h3><p id="absenceCount">0 ocorrências no período</p></div>
+              <div class="filters">
+                <label><span>Funcionário</span><select id="employeeFilter"><option value="">Todos</option></select></label>
+                <label><span>Tipo</span><select id="absenceFilter"><option value="">Todos os tipos</option></select></label>
+              </div>
+            </div>
+            <div class="table-wrap small-table-wrap">
+              <table>
+                <thead><tr><th>Data / aba</th><th>Funcionário</th><th>Ocorrência</th><th>Arquivo</th></tr></thead>
+                <tbody id="absenceTable"></tbody>
               </table>
             </div>
           </article>
@@ -96,7 +117,7 @@
           </article>
         </section>
       </main>
-      <footer>SPOT Insight • Os dados são processados somente no seu navegador.</footer>
+      <footer>Frota Insight • Os dados são processados somente no seu navegador.</footer>
     </div>
     <div id="toast" class="toast" role="status"></div>
     <script src="app.js"></script>

@@ -1,122 +1,110 @@
-/* SPOT Insight - processamento local de planilhas */
-const state = { records: [], audit: [], loadedKeys: new Set() };
+/* Frota Insight — processamento local de planilhas de rota */
+const state = { records: [], absences: [], audit: [], loadedKeys: new Set() };
 const $ = (id) => document.getElementById(id);
 const fileInput = $('fileInput'), folderInput = $('folderInput'), dropzone = $('dropzone');
+const FLEETS = { COOPERRITA: 'Carros da casa', 'TERCEIROS FIXOS': 'Terceiros fixos', SPOT: 'SPOT' };
+const FLEET_ORDER = ['COOPERRITA', 'TERCEIROS FIXOS', 'SPOT'];
+const ABSENCE_LABELS = { FOLGA: 'Folga', 'FÉRIAS': 'Férias', ATESTADO: 'Atestado', FALTA: 'Falta' };
 
 function clean(value) { return String(value ?? '').replace(/\s+/g, ' ').trim(); }
 function norm(value) { return clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase(); }
 function hasValue(value) { return clean(value) !== ''; }
 function escapeHtml(value) { return clean(value).replace(/[&<>'"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;' }[c])); }
 function dateKey(value) { const m = clean(value).match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})/); return m ? `${m[3].length === 2 ? '20' + m[3] : m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}` : ''; }
-function displayDate(record) {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(record.date)) { const [year, month, day] = record.date.split('-'); return `${day}/${month}/${year}`; }
-  return record.date || record.sheet;
-}
-function isStopRow(row) { const combined = norm(row.join(' ')); return /\b(FOLGA|ATESTADO|FERIAS|FÉRIAS|DUPLAS|COOPERRITA|TERCEIROS|LOGISTICA)\b/.test(combined); }
-function resemblesPlate(value) { const text = clean(value); return /[A-Z]{3}\s?-?\s?[0-9A-Z]{4}/i.test(text); }
-function countShipments(value) { const text = clean(value); if (!text || /CONTINUA|ESCALA|REENTREGA/i.test(text)) return 0; const parts = text.match(/\d{4,}/g); return parts?.length || 0; }
-
+function displayDate(record) { if (/^\d{4}-\d{2}-\d{2}$/.test(record.date)) { const [year, month, day] = record.date.split('-'); return `${day}/${month}/${year}`; } return record.date || record.sheet; }
+function resemblesPlate(value) { return /\b[A-Z]{3}\s?-?\s?(?=[0-9A-Z]{4}\b)(?=[0-9A-Z]*\d)[0-9A-Z]{4}\b/i.test(clean(value)); }
+function countShipments(value) { const text = clean(value); if (!text || /CONTINUA.{0,15}ESCALA/i.test(text)) return 0; return text.match(/\d{4,}/g)?.length || 0; }
+function isContinuation(record) { return /CONTINUA.{0,20}ESCALA/i.test(`${record.shipment} ${record.city}`); }
 function showToast(message) { const toast = $('toast'); toast.textContent = message; toast.classList.add('show'); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => toast.classList.remove('show'), 3200); }
-function sectionHeader(rows, start) {
-  for (let r = start + 1; r < Math.min(rows.length, start + 7); r++) {
-    const row = rows[r]; const text = row.map(norm);
-    if (text.some(x => x === 'PLACAS' || x === 'PLACA') && text.some(x => x.includes('MOTORISTA'))) return r;
+function findSheetDate(rows, sheetName) { for (const row of rows.slice(0, 9)) for (const cell of row) { const found = dateKey(cell); if (found) return found; } const m = clean(sheetName).match(/^(\d{2})(\d{2})(\d{2,4})?$/); return m && m[3] ? `${m[3].length === 2 ? '20' + m[3] : m[3]}-${m[2]}-${m[1]}` : clean(sheetName); }
+
+function sectionFromRow(row) {
+  const values = row.map(norm), combined = values.join(' ');
+  if (values.some(v => v === 'COOPERRITA') || /\bCOOPERRITA\b/.test(combined)) return 'COOPERRITA';
+  if (values.some(v => v === 'TERCEIROS FIXOS') || values.some(v => v === 'TERCEIROS')) return 'TERCEIROS FIXOS';
+  if (values.some(v => v === 'SPOT')) return 'SPOT';
+  return '';
+}
+function headerRow(rows, start) { for (let r = start + 1; r < Math.min(rows.length, start + 8); r++) { const values = rows[r].map(norm); if (values.some(v => v === 'PLACA' || v === 'PLACAS') && values.some(v => v.includes('MOTORISTA'))) return r; } return -1; }
+function columnMap(header) { const find = (terms, fallback) => { const index = header.findIndex(v => terms.some(t => norm(v).includes(t))); return index >= 0 ? index : fallback; }; return { plate: find(['PLACA'], 0), driver: find(['MOTORISTA', 'MOT.'], 1), phone: find(['TELEFONE', 'CELULAR'], 2), shipment: find(['EMBARQUE'], 3), city: find(['CIDADE', 'CIDADES', 'ROTA'], 4), overnight: find(['PERNOITA', 'PERNOITE'], -1) }; }
+function absenceHeaders(row) { const results = []; row.forEach((value, col) => { const text = norm(value); if (text === 'FOLGA') results.push({ col, type: 'FOLGA' }); else if (text === 'FERIAS' || text === 'FÉRIAS') results.push({ col, type: 'FÉRIAS' }); else if (text === 'ATESTADO') results.push({ col, type: 'ATESTADO' }); else if (text === 'FALTA' || text === 'FALTAS') results.push({ col, type: 'FALTA' }); }); return results; }
+function rowSignalsNewBlock(row) { const values = row.map(norm), combined = values.join(' '); return Boolean(sectionFromRow(row)) || values.some(v => /^(FOLGA|FERIAS|ATESTADO|FALTA|FALTAS)$/.test(v)) || /\b(FOLGA|FERIAS|ATESTADO|FALTA|FALTAS)\b/.test(combined); }
+function isPerson(value) { const text = clean(value), normalized = norm(value); return text.length >= 3 && !resemblesPlate(text) && !/^(PLACAS?|MOTORISTA|AJUDANTE|TELEFONE|EMBARQUE|CIDADES?|ROTA|PESO|PERNOITA|CELULAR|DUPLAS?)$/.test(normalized) && !/^(SIM|NAO|S|N|\d+)$/.test(normalized); }
+
+function extractFleetSection(rows, source, sheet, fleet, start) {
+  const header = headerRow(rows, start); if (header < 0) return { records: [], foundHeader: false };
+  const cols = columnMap(rows[header]), records = []; let emptyStreak = 0;
+  for (let r = header + 1; r < Math.min(rows.length, header + 42); r++) {
+    const row = rows[r]; if (rowSignalsNewBlock(row)) break;
+    const plate = clean(row[cols.plate]), driver = clean(row[cols.driver]), shipment = clean(row[cols.shipment]), city = clean(row[cols.city]);
+    const rowHasData = [plate, driver, shipment, city].some(hasValue); emptyStreak = rowHasData ? 0 : emptyStreak + 1; if (emptyStreak >= 4) break;
+    const record = { date: findSheetDate(rows, sheet), sheet, source, fleet, plate, driver, phone: clean(row[cols.phone]), shipment, city, overnight: cols.overnight >= 0 ? clean(row[cols.overnight]) : '' };
+    if (!resemblesPlate(plate) || isContinuation(record) || (!hasValue(shipment) && !hasValue(city))) continue;
+    record.id = `${source}|${sheet}|${fleet}|${r}|${plate}|${shipment}|${city}`; records.push(record);
   }
-  return -1;
+  return { records, foundHeader: true };
 }
-function columnMap(header) {
-  const map = {}; const find = (terms, fallback) => { const found = header.findIndex(v => terms.some(t => norm(v).includes(t))); return found >= 0 ? found : fallback; };
-  map.plate = find(['PLACA'], 2); map.driver = find(['MOTORISTA','MOT.'], 3); map.phone = find(['TELEFONE','CELULAR'], 4); map.shipment = find(['EMBARQUE'], 5); map.city = find(['CIDADE','CIDADES','ROTA'], 6);
-  return map;
-}
-function findSheetDate(rows, sheetName) {
-  for (const row of rows.slice(0, 8)) { for (const cell of row) { const found = dateKey(cell); if (found) return found; } }
-  const m = clean(sheetName).match(/^(\d{2})(\d{2})(\d{2,4})?$/); return m && m[3] ? `${m[3].length === 2 ? '20' + m[3] : m[3]}-${m[2]}-${m[1]}` : clean(sheetName);
+function extractAbsences(rows, source, sheet) {
+  const records = [], date = findSheetDate(rows, sheet);
+  for (let r = 0; r < rows.length; r++) absenceHeaders(rows[r]).forEach(({ col, type }) => {
+    for (let rr = r + 1; rr < Math.min(rows.length, r + 8); rr++) {
+      if (rr > r + 1 && (sectionFromRow(rows[rr]) || absenceHeaders(rows[rr]).length)) break;
+      const employee = clean(rows[rr][col]); if (!isPerson(employee)) continue;
+      records.push({ id: `${source}|${sheet}|${type}|${rr}|${col}|${employee}`, date, sheet, source, type, employee });
+    }
+  });
+  return records;
 }
 function extractSheet(rows, source, sheet) {
-  const sections = [];
-  for (let r = 0; r < rows.length; r++) if (rows[r].some(cell => norm(cell) === 'SPOT')) sections.push(r);
-  if (!sections.length) return { records: [], message: `${sheet}: seção SPOT não encontrada.` };
-  const records = []; let validSections = 0;
-  for (const start of sections) {
-    const headerRow = sectionHeader(rows, start); if (headerRow < 0) continue; validSections++;
-    const cols = columnMap(rows[headerRow]); let emptyStreak = 0;
-    for (let r = headerRow + 1; r < Math.min(rows.length, headerRow + 35); r++) {
-      const row = rows[r]; const firstCells = row.slice(0, Math.max(8, cols.city + 1));
-      if (isStopRow(firstCells)) break;
-      const plate = clean(row[cols.plate]), driver = clean(row[cols.driver]), shipment = clean(row[cols.shipment]), city = clean(row[cols.city]);
-      const rowHasData = hasValue(plate) || hasValue(driver) || hasValue(shipment) || hasValue(city);
-      emptyStreak = rowHasData ? 0 : emptyStreak + 1;
-      if (emptyStreak >= 4) break;
-      // Uma utilização ocorre quando a linha SPOT tem veículo e rota ou embarque real.
-      const used = resemblesPlate(plate) && (hasValue(shipment) || (hasValue(city) && !/CONTINUA.{0,15}ESCALA/i.test(city)));
-      if (!used) continue;
-      const record = { date: findSheetDate(rows, sheet), sheet, source, plate, driver, phone: clean(row[cols.phone]), shipment, city };
-      record.id = `${source}|${sheet}|${r}|${plate}|${shipment}|${city}`;
-      records.push(record);
-    }
-  }
-  return { records, message: validSections ? `${sheet}: ${records.length} utilização(ões) SPOT encontrada(s).` : `${sheet}: seção SPOT encontrada, mas cabeçalho não reconhecido.` };
+  const records = []; let sections = 0;
+  for (let r = 0; r < rows.length; r++) { const fleet = sectionFromRow(rows[r]); if (!fleet) continue; sections++; records.push(...extractFleetSection(rows, source, sheet, fleet, r).records); }
+  const absences = extractAbsences(rows, source, sheet);
+  return { records, absences, message: sections ? `${sheet}: ${records.length} rota(s), ${absences.length} afastamento(s) e ${sections} seção(ões) identificada(s).` : `${sheet}: nenhuma seção de frota reconhecida.` };
 }
 async function readFiles(files) {
   if (!files.length) return;
   if (!window.XLSX) { showToast('Não foi possível carregar o leitor de Excel. Verifique sua conexão e tente novamente.'); return; }
   let processed = 0;
   for (const file of files) {
-    const fileKey = `${file.name}-${file.size}-${file.lastModified}`;
-    if (state.loadedKeys.has(fileKey)) continue;
+    const fileKey = `${file.name}-${file.size}-${file.lastModified}`; if (state.loadedKeys.has(fileKey)) continue;
     try {
-      const data = await file.arrayBuffer(); const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-      let fileRecords = 0;
-      workbook.SheetNames.forEach(sheetName => {
-        const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: '', raw: false });
-        const result = extractSheet(rows, file.name, sheetName); fileRecords += result.records.length;
-        result.records.forEach(record => { if (!state.records.some(old => old.id === record.id)) state.records.push(record); });
-        state.audit.push(result.message);
-      });
-      state.loadedKeys.add(fileKey); processed++;
-      state.audit.unshift(`${file.name}: análise concluída (${fileRecords} utilização(ões)).`);
+      const data = await file.arrayBuffer(), workbook = XLSX.read(data, { type: 'array', cellDates: true }); let fileRecords = 0, fileAbsences = 0;
+      workbook.SheetNames.forEach(sheetName => { const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: '', raw: false }); const result = extractSheet(rows, file.name, sheetName); fileRecords += result.records.length; fileAbsences += result.absences.length; result.records.forEach(record => { if (!state.records.some(old => old.id === record.id)) state.records.push(record); }); result.absences.forEach(record => { if (!state.absences.some(old => old.id === record.id)) state.absences.push(record); }); state.audit.push(result.message); });
+      state.loadedKeys.add(fileKey); processed++; state.audit.unshift(`${file.name}: análise concluída (${fileRecords} rotas; ${fileAbsences} afastamentos).`);
     } catch (error) { state.audit.unshift(`${file.name}: não foi possível ler o arquivo (${error.message}).`); }
   }
-  if (!processed) { showToast('Esses arquivos já foram importados.'); return; }
-  render(); showToast(`${processed} arquivo(s) processado(s) com sucesso.`);
+  if (!processed) { showToast('Esses arquivos já foram importados.'); return; } render(); showToast(`${processed} arquivo(s) processado(s) com sucesso.`);
 }
-function sortedRecords() { return [...state.records].sort((a,b) => String(a.date).localeCompare(String(b.date), 'pt-BR') || a.plate.localeCompare(b.plate)); }
-function setOptions(id, values, label, formatter = value => value) { const select = $(id); const selected = select.value; select.innerHTML = `<option value="">${label}</option>` + values.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(formatter(value))}</option>`).join(''); if (values.includes(selected)) select.value = selected; }
-function filteredRecords() { const query = norm($('searchInput').value), date = $('dateFilter').value, plate = $('plateFilter').value; return sortedRecords().filter(r => (!date || r.date === date) && (!plate || r.plate === plate) && (!query || norm([r.date,r.sheet,r.source,r.plate,r.driver,r.shipment,r.city].join(' ')).includes(query))); }
+function sortedRecords() { return [...state.records].sort((a, b) => String(a.date).localeCompare(String(b.date), 'pt-BR') || a.fleet.localeCompare(b.fleet) || a.plate.localeCompare(b.plate)); }
+function sortedAbsences() { return [...state.absences].sort((a, b) => String(a.date).localeCompare(String(b.date), 'pt-BR') || a.employee.localeCompare(b.employee)); }
+function setOptions(id, values, label, formatter = value => value) { const select = $(id), selected = select.value; select.innerHTML = `<option value="">${label}</option>` + values.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(formatter(value))}</option>`).join(''); if (values.includes(selected)) select.value = selected; }
+function filteredRecords() { const query = norm($('searchInput').value), date = $('dateFilter').value, plate = $('plateFilter').value, fleet = $('fleetFilter').value; return sortedRecords().filter(r => (!date || r.date === date) && (!plate || r.plate === plate) && (!fleet || r.fleet === fleet) && (!query || norm([r.date, r.sheet, r.source, r.fleet, r.plate, r.driver, r.shipment, r.city].join(' ')).includes(query))); }
+function filteredAbsences() { const employee = $('employeeFilter').value, type = $('absenceFilter').value; return sortedAbsences().filter(r => (!employee || r.employee === employee) && (!type || r.type === type)); }
+function countFleet(records, fleet) { return records.filter(r => r.fleet === fleet).length; }
+function countAbsence(type) { return state.absences.filter(r => r.type === type).length; }
+function isOvernight(record) { return /PERNOITE|\bSIM\b|\bS\b/i.test(`${record.city} ${record.overnight}`); }
+
 function render() {
-  $('dashboard').classList.remove('hidden'); $('clearData').hidden = false;
-  const records = sortedRecords();
-  $('importStatus').textContent = `${state.loadedKeys.size} arquivo(s) • ${records.length} utilização(ões) identificada(s)`;
-  $('metricUses').textContent = records.length; $('metricVehicles').textContent = new Set(records.map(r => r.plate)).size; $('metricDays').textContent = new Set(records.map(r => r.date || r.sheet)).size; $('metricShipments').textContent = records.reduce((sum,r) => sum + countShipments(r.shipment), 0);
-  setOptions('dateFilter', [...new Set(records.map(r => r.date))].sort(), 'Todos os dias', value => displayDate({date: value, sheet: value}));
-  setOptions('plateFilter', [...new Set(records.map(r => r.plate))].sort(), 'Todas as placas');
-  renderCharts(records); renderTable();
-  $('auditSummary').textContent = `${state.audit.filter(v=>/concluída/.test(v)).length} arquivo(s) analisado(s).`;
-  $('auditList').innerHTML = state.audit.slice(0, 80).map(item => `<li>${escapeHtml(item)}</li>`).join('');
+  $('dashboard').classList.remove('hidden'); $('clearData').hidden = false; const records = sortedRecords();
+  $('importStatus').textContent = `${state.loadedKeys.size} arquivo(s) • ${records.length} rotas • ${state.absences.length} afastamentos`;
+  $('metricUses').textContent = records.length; $('metricHouse').textContent = countFleet(records, 'COOPERRITA'); $('metricFixed').textContent = countFleet(records, 'TERCEIROS FIXOS'); $('metricSpot').textContent = countFleet(records, 'SPOT'); $('metricLeaves').textContent = countAbsence('FOLGA'); $('metricVacation').textContent = countAbsence('FÉRIAS'); $('metricMedical').textContent = countAbsence('ATESTADO'); $('metricOvernight').textContent = records.filter(isOvernight).length;
+  setOptions('dateFilter', [...new Set(records.map(r => r.date))].filter(Boolean).sort(), 'Todos os dias', value => displayDate({ date: value, sheet: value })); setOptions('fleetFilter', FLEET_ORDER.filter(fleet => records.some(r => r.fleet === fleet)), 'Todas as frotas', fleet => FLEETS[fleet]); setOptions('plateFilter', [...new Set(records.map(r => r.plate))].sort(), 'Todas as placas'); setOptions('employeeFilter', [...new Set(state.absences.map(r => r.employee))].sort(), 'Todos'); setOptions('absenceFilter', [...new Set(state.absences.map(r => r.type))].sort(), 'Todos os tipos', type => ABSENCE_LABELS[type]);
+  renderCharts(records); renderTable(); renderAbsenceTable(); $('auditSummary').textContent = `${state.audit.filter(v => /concluída/.test(v)).length} arquivo(s) analisado(s).`; $('auditList').innerHTML = state.audit.slice(0, 100).map(item => `<li>${escapeHtml(item)}</li>`).join('');
 }
 function renderCharts(records) {
-  const daily = new Map(); records.forEach(r => daily.set(r.date, (daily.get(r.date) || 0) + 1));
-  const rows = [...daily.entries()].sort((a,b) => a[0].localeCompare(b[0])); const max = Math.max(...rows.map(x=>x[1]),1);
-  $('dailyChart').innerHTML = rows.map(([day,count]) => `<div class="bar-item" title="${escapeHtml(day)}: ${count}"><span class="bar-value">${count}</span><div class="bar" style="height:${Math.round((count/max)*138)}px"></div><span class="bar-label">${escapeHtml(day)}</span></div>`).join('');
+  const daily = new Map(); records.forEach(r => { const day = r.date || r.sheet; if (!daily.has(day)) daily.set(day, { COOPERRITA: 0, 'TERCEIROS FIXOS': 0, SPOT: 0 }); daily.get(day)[r.fleet]++; });
+  const rows = [...daily.entries()].sort((a, b) => a[0].localeCompare(b[0])); const max = Math.max(...rows.map(([, counts]) => Object.values(counts).reduce((sum, n) => sum + n, 0)), 1);
+  $('dailyChart').innerHTML = rows.map(([day, counts]) => { const total = Object.values(counts).reduce((sum, n) => sum + n, 0); const segments = FLEET_ORDER.filter(f => counts[f]).map(f => `<span class="bar-segment ${f === 'COOPERRITA' ? 'house-bar' : f === 'TERCEIROS FIXOS' ? 'fixed-bar' : 'spot-bar'}" style="height:${(counts[f] / total) * 100}%"></span>`).join(''); return `<div class="bar-item" title="${escapeHtml(day)}: ${total} veículo(s)-dia"><span class="bar-value">${total}</span><div class="bar stacked-bar" style="height:${Math.max(3, Math.round((total / max) * 138))}px">${segments}</div><span class="bar-label">${escapeHtml(day.slice(5).split('-').reverse().join('/') || day)}</span></div>`; }).join('');
   $('noChart').classList.toggle('hidden', rows.length > 0);
-  const plates = new Map(); records.forEach(r => plates.set(r.plate, (plates.get(r.plate)||0)+1));
-  const rank = [...plates.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,6);
-  $('vehicleRanking').innerHTML = rank.length ? rank.map(([plate,count],i) => `<li><span class="rank-number">${i+1}</span><span class="rank-name">${escapeHtml(plate)}</span><span class="rank-count">${count} uso${count===1?'':'s'}</span></li>`).join('') : '<li class="no-results">Sem dados.</li>';
+  const plates = new Map(); records.forEach(r => { const current = plates.get(r.plate) || { count: 0, fleets: new Set() }; current.count++; current.fleets.add(r.fleet); plates.set(r.plate, current); }); const rank = [...plates.entries()].sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0])).slice(0, 6);
+  $('vehicleRanking').innerHTML = rank.length ? rank.map(([plate, info], i) => `<li><span class="rank-number">${i + 1}</span><span class="rank-name">${escapeHtml(plate)}<small>${escapeHtml([...info.fleets].map(f => FLEETS[f]).join(' • '))}</small></span><span class="rank-count">${info.count} uso${info.count === 1 ? '' : 's'}</span></li>`).join('') : '<li class="no-results">Sem dados.</li>';
 }
-function renderTable() {
-  const records = filteredRecords(); $('reportCount').textContent = `${records.length} registro${records.length===1?'':'s'} encontrado${records.length===1?'':'s'}`;
-  $('usageTable').innerHTML = records.length ? records.map(r => `<tr><td>${escapeHtml(displayDate(r))}<br><small>${escapeHtml(r.sheet)}</small></td><td>${escapeHtml(r.plate)}</td><td>${escapeHtml(r.driver || '—')}</td><td>${escapeHtml(r.shipment || '—')}</td><td>${escapeHtml(r.city || '—')}</td><td>${escapeHtml(r.source)}</td></tr>`).join('') : '<tr><td class="no-results" colspan="6">Nenhuma utilização corresponde aos filtros.</td></tr>';
-}
-function exportCsv() {
-  const records = filteredRecords(); if (!records.length) { showToast('Não há registros para exportar.'); return; }
-  const lines = [['Data/Aba','Placa','Motorista','Telefone','Embarque','Cidades/Rota','Arquivo'], ...records.map(r => [displayDate(r),r.plate,r.driver,r.phone,r.shipment,r.city,r.source])];
-  const csv = lines.map(row => row.map(value => `"${String(value ?? '').replaceAll('"','""')}"`).join(';')).join('\r\n');
-  const url = URL.createObjectURL(new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'})); const link = document.createElement('a'); link.href=url; link.download='relatorio-spot.csv'; link.click(); URL.revokeObjectURL(url);
-}
-function clearAll() { state.records=[]; state.audit=[]; state.loadedKeys.clear(); $('dashboard').classList.add('hidden'); $('clearData').hidden=true; $('importStatus').textContent='Nenhuma planilha importada'; fileInput.value=''; folderInput.value=''; showToast('Dados removidos do painel.'); }
+function renderTable() { const records = filteredRecords(); $('reportCount').textContent = `${records.length} rota${records.length === 1 ? '' : 's'} encontrada${records.length === 1 ? '' : 's'}`; $('usageTable').innerHTML = records.length ? records.map(r => `<tr><td>${escapeHtml(displayDate(r))}<br><small>${escapeHtml(r.sheet)}</small></td><td><span class="fleet-tag ${r.fleet === 'COOPERRITA' ? 'tag-house' : r.fleet === 'TERCEIROS FIXOS' ? 'tag-fixed' : 'tag-spot'}">${escapeHtml(FLEETS[r.fleet])}</span></td><td>${escapeHtml(r.plate)}</td><td>${escapeHtml(r.driver || '—')}</td><td>${escapeHtml(r.shipment || '—')}</td><td>${escapeHtml(r.city || '—')}${isOvernight(r) ? '<span class="overnight">Pernoite</span>' : ''}</td><td>${escapeHtml(r.source)}</td></tr>`).join('') : '<tr><td class="no-results" colspan="7">Nenhuma utilização corresponde aos filtros.</td></tr>'; }
+function renderAbsenceTable() { const records = filteredAbsences(); $('absenceCount').textContent = `${records.length} ocorrência${records.length === 1 ? '' : 's'} no período`; $('absenceTable').innerHTML = records.length ? records.map(r => `<tr><td>${escapeHtml(displayDate(r))}<br><small>${escapeHtml(r.sheet)}</small></td><td>${escapeHtml(r.employee)}</td><td><span class="absence-tag ${r.type === 'FOLGA' ? 'absence-folga' : r.type === 'FÉRIAS' ? 'absence-ferias' : r.type === 'ATESTADO' ? 'absence-atestado' : 'absence-falta'}">${escapeHtml(ABSENCE_LABELS[r.type])}</span></td><td>${escapeHtml(r.source)}</td></tr>`).join('') : '<tr><td class="no-results" colspan="4">Nenhum afastamento corresponde aos filtros.</td></tr>'; }
+function exportCsv() { const records = filteredRecords(), absences = filteredAbsences(); if (!records.length && !absences.length) { showToast('Não há dados para exportar.'); return; } const lines = [['Tipo','Data/Aba','Frota / Ocorrência','Placa / Funcionário','Motorista','Telefone','Embarque','Cidades / Rota','Arquivo'], ...records.map(r => ['Rota', displayDate(r), FLEETS[r.fleet], r.plate, r.driver, r.phone, r.shipment, r.city, r.source]), ...absences.map(r => ['Afastamento', displayDate(r), ABSENCE_LABELS[r.type], r.employee, '', '', '', '', r.source])]; const csv = lines.map(row => row.map(value => `"${String(value ?? '').replaceAll('"', '""')}"`).join(';')).join('\r\n'); const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })); const link = document.createElement('a'); link.href = url; link.download = 'relatorio-frota-completo.csv'; link.click(); URL.revokeObjectURL(url); }
+function clearAll() { state.records = []; state.absences = []; state.audit = []; state.loadedKeys.clear(); $('dashboard').classList.add('hidden'); $('clearData').hidden = true; $('importStatus').textContent = 'Nenhuma planilha importada'; fileInput.value = ''; folderInput.value = ''; showToast('Dados removidos do painel.'); }
 
 $('chooseFiles').addEventListener('click', () => fileInput.click()); fileInput.addEventListener('change', e => readFiles([...e.target.files])); folderInput.addEventListener('change', e => readFiles([...e.target.files]));
 dropzone.addEventListener('click', e => { if (!e.target.closest('button')) fileInput.click(); }); dropzone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
-['dragenter','dragover'].forEach(event => dropzone.addEventListener(event, e=>{e.preventDefault(); dropzone.classList.add('dragging');})); ['dragleave','drop'].forEach(event => dropzone.addEventListener(event,e=>{e.preventDefault();dropzone.classList.remove('dragging');})); dropzone.addEventListener('drop', e=>readFiles([...e.dataTransfer.files].filter(f=>/\.(xlsx|xlsm|xlsb|xls|csv)$/i.test(f.name))));
-['searchInput','dateFilter','plateFilter'].forEach(id => $(id).addEventListener(id==='searchInput'?'input':'change', renderTable)); $('clearData').addEventListener('click', clearAll); $('exportCsv').addEventListener('click', exportCsv);
+['dragenter', 'dragover'].forEach(event => dropzone.addEventListener(event, e => { e.preventDefault(); dropzone.classList.add('dragging'); })); ['dragleave', 'drop'].forEach(event => dropzone.addEventListener(event, e => { e.preventDefault(); dropzone.classList.remove('dragging'); })); dropzone.addEventListener('drop', e => readFiles([...e.dataTransfer.files].filter(f => /\.(xlsx|xlsm|xlsb|xls|csv)$/i.test(f.name))));
+['searchInput', 'dateFilter', 'fleetFilter', 'plateFilter'].forEach(id => $(id).addEventListener(id === 'searchInput' ? 'input' : 'change', renderTable)); ['employeeFilter', 'absenceFilter'].forEach(id => $(id).addEventListener('change', renderAbsenceTable)); $('clearData').addEventListener('click', clearAll); $('exportCsv').addEventListener('click', exportCsv);

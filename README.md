@@ -1,6 +1,6 @@
-# SPOT Insight — Painel de utilização de SPOT
+# Frota Insight — Painel completo de operação
 
-Projeto estático em HTML, CSS e JavaScript para analisar planilhas diárias de logística e consolidar a utilização de veículos SPOT.
+Projeto estático em HTML, CSS e JavaScript para analisar planilhas diárias de logística e consolidar a utilização de toda a frota.
 
 ## Como usar
 
@@ -13,19 +13,18 @@ Também é possível arrastar os arquivos diretamente para o painel. Todos os c�
 
 ## O que o sistema identifica
 
-O app procura, dentro de cada aba, uma seção chamada **SPOT** e localiza automaticamente o cabeçalho da tabela, mesmo que ele mude de linha ou que existam colunas extras. São identificados os campos de Placa, Motorista, Telefone, Embarque e Cidades/Rota.
+O app procura, dentro de cada aba, as seções **COOPERRITA / carros da casa**, **TERCEIROS FIXOS** (inclusive planilhas antigas com o título “TERCEIROS”) e **SPOT**. Ele localiza o cabeçalho mesmo quando muda de linha ou tem colunas extras. São identificados os campos de Placa, Motorista, Telefone, Embarque, Cidades/Rota e Pernoite.
 
-Uma utilização é contabilizada quando há uma placa de veículo SPOT e também uma rota/cidade real ou um embarque. Linhas vazias, `CONTINUAÇÃO DE ESCALA`, `FOLGA`, `FÉRIAS` e `ATESTADO` não entram como utilização.
+Uma utilização é contabilizada quando há uma placa de veículo e também uma rota/cidade real ou um embarque. Linhas vazias e `CONTINUAÇÃO DE ESCALA` não entram como utilização. As seções `FOLGA`, `FÉRIAS`, `ATESTADO` e `FALTA` são lidas separadamente como disponibilidade da equipe.
 
 ## Relatórios disponíveis
 
-- Total de utilizações SPOT (veículo-dia/registro)
-- Veículos SPOT únicos
-- Dias com uso de SPOT
-- Quantidade de embarques informados
-- Uso por dia e ranking de veículos
-- Tabela detalhada com filtros e exportação em CSV
-- Auditoria das abas processadas, incluindo avisos de abas sem a seção SPOT
+- Total de veículos-dia em rota e utilizações por tipo de frota
+- Carros da casa, terceiros fixos e SPOTs em indicadores separados
+- Folgas, férias, atestados e faltas por funcionário
+- Pernoites, uso diário por categoria e ranking de veículos
+- Tabelas detalhadas com filtros e exportação de relatório completo em CSV
+- Auditoria das abas processadas e de suas seções operacionais
 
 ## Publicar no GitHub Pages
 
