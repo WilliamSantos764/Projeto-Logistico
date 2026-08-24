@@ -20,12 +20,14 @@ function findSheetDate(rows, sheetName) { for (const row of rows.slice(0, 9)) fo
 
 function sectionFromRow(row) {
   const values = row.map(norm), combined = values.join(' ');
-  if (values.some(v => v === 'COOPERRITA') || /\bCOOPERRITA\b/.test(combined)) return 'COOPERRITA';
-  if (values.some(v => v === 'TERCEIROS FIXOS') || values.some(v => v === 'TERCEIROS')) return 'TERCEIROS FIXOS';
+  if (values.some(v => /COOPERRITA|COOPER RITA|FROTA PROPRIA|CARROS? DA CASA/.test(v)) || /\bCOOPERRITA\b/.test(combined)) return 'COOPERRITA';
+  if (values.some(v => /TERCEIROS? FIXOS?|FROTA TERCEIRA/.test(v)) || values.some(v => v === 'TERCEIROS')) return 'TERCEIROS FIXOS';
   if (values.some(v => v === 'SPOT')) return 'SPOT';
   return '';
 }
 function headerRow(rows, start) { for (let r = start + 1; r < Math.min(rows.length, start + 8); r++) { const values = rows[r].map(norm); if (values.some(v => v === 'PLACA' || v === 'PLACAS') && values.some(v => v.includes('MOTORISTA'))) return r; } return -1; }
+function isFleetHeader(row) { const values = row.map(norm); return values.some(v => /\bPLACAS?\b/.test(v)) && values.some(v => /MOTORISTA|\bMOT\.?\b/.test(v)); }
+function fleetBeforeHeader(rows, header) { for (let r = header - 1; r >= Math.max(0, header - 22); r--) { const fleet = sectionFromRow(rows[r]); if (fleet) return fleet; } return ''; }
 function columnMap(header) { const find = (terms, fallback) => { const index = header.findIndex(v => terms.some(t => norm(v).includes(t))); return index >= 0 ? index : fallback; }; return { plate: find(['PLACA'], 0), driver: find(['MOTORISTA', 'MOT.'], 1), phone: find(['TELEFONE', 'CELULAR'], 2), shipment: find(['EMBARQUE'], 3), city: find(['CIDADE', 'CIDADES', 'ROTA'], 4), overnight: find(['PERNOITA', 'PERNOITE'], -1) }; }
 function absenceHeaders(row) { const results = []; row.forEach((value, col) => { const text = norm(value); if (text === 'FOLGA') results.push({ col, type: 'FOLGA' }); else if (text === 'FERIAS' || text === 'FÉRIAS') results.push({ col, type: 'FÉRIAS' }); else if (text === 'ATESTADO') results.push({ col, type: 'ATESTADO' }); else if (text === 'FALTA' || text === 'FALTAS') results.push({ col, type: 'FALTA' }); }); return results; }
 function rowSignalsNewBlock(row) { const values = row.map(norm), combined = values.join(' '); return Boolean(sectionFromRow(row)) || values.some(v => /^(FOLGA|FERIAS|ATESTADO|FALTA|FALTAS)$/.test(v)) || /\b(FOLGA|FERIAS|ATESTADO|FALTA|FALTAS)\b/.test(combined); }
@@ -44,6 +46,18 @@ function extractFleetSection(rows, source, sheet, fleet, start) {
   }
   return { records, foundHeader: true };
 }
+function extractHeaderTable(rows, source, sheet, fleet, header) {
+  const cols = columnMap(rows[header]), records = []; let emptyStreak = 0;
+  for (let r = header + 1; r < Math.min(rows.length, header + 45); r++) {
+    const row = rows[r]; if (rowSignalsNewBlock(row) || isFleetHeader(row)) break;
+    const plate = clean(row[cols.plate]), driver = clean(row[cols.driver]), shipment = clean(row[cols.shipment]), city = clean(row[cols.city]);
+    const rowHasData = [plate, driver, shipment, city].some(hasValue); emptyStreak = rowHasData ? 0 : emptyStreak + 1; if (emptyStreak >= 5) break;
+    const record = { date: findSheetDate(rows, sheet), sheet, source, fleet, plate, driver, phone: clean(row[cols.phone]), shipment, city, overnight: cols.overnight >= 0 ? clean(row[cols.overnight]) : '' };
+    if (!resemblesPlate(plate) || isContinuation(record) || (!hasValue(shipment) && !hasValue(city))) continue;
+    record.id = `${source}|${sheet}|${fleet}|${r}|${plate}|${shipment}|${city}`; records.push(record);
+  }
+  return records;
+}
 function extractAbsences(rows, source, sheet) {
   const records = [], date = findSheetDate(rows, sheet);
   for (let r = 0; r < rows.length; r++) absenceHeaders(rows[r]).forEach(({ col, type }) => {
@@ -56,10 +70,18 @@ function extractAbsences(rows, source, sheet) {
   return records;
 }
 function extractSheet(rows, source, sheet) {
-  const records = []; let sections = 0;
-  for (let r = 0; r < rows.length; r++) { const fleet = sectionFromRow(rows[r]); if (!fleet) continue; sections++; records.push(...extractFleetSection(rows, source, sheet, fleet, r).records); }
+  const records = []; let sections = 0, headers = 0, unknownHeaders = 0;
+  for (let r = 0; r < rows.length; r++) {
+    if (sectionFromRow(rows[r])) sections++;
+    if (!isFleetHeader(rows[r])) continue;
+    headers++;
+    const fleet = fleetBeforeHeader(rows, r);
+    if (!fleet) { unknownHeaders++; continue; }
+    extractHeaderTable(rows, source, sheet, fleet, r).forEach(record => { if (!records.some(old => old.id === record.id)) records.push(record); });
+  }
   const absences = extractAbsences(rows, source, sheet);
-  return { records, absences, message: sections ? `${sheet}: ${records.length} rota(s), ${absences.length} afastamento(s) e ${sections} seção(ões) identificada(s).` : `${sheet}: nenhuma seção de frota reconhecida.` };
+  const detail = unknownHeaders ? ` ${unknownHeaders} cabeçalho(s) sem categoria foram ignorados.` : '';
+  return { records, absences, message: headers ? `${sheet}: ${records.length} rota(s), ${absences.length} afastamento(s), ${headers} cabeçalho(s) lido(s).${detail}` : `${sheet}: nenhum cabeçalho de Placa/Motorista reconhecido.` };
 }
 async function readFiles(files) {
   if (!files.length) return;
