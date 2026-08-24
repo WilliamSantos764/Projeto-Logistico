@@ -1,5 +1,5 @@
 /* Frota Insight — processamento local de planilhas de rota */
-const state = { records: [], absences: [], audit: [], loadedKeys: new Set() };
+const state = { records: [], absences: [], audit: [], loadedKeys: new Set(), rates: JSON.parse(localStorage.getItem('frotaInsightRates') || '{}') };
 const $ = (id) => document.getElementById(id);
 const fileInput = $('fileInput'), folderInput = $('folderInput'), dropzone = $('dropzone');
 const FLEETS = { COOPERRITA: 'Carros da casa', 'TERCEIROS FIXOS': 'Terceiros fixos', SPOT: 'SPOT' };
@@ -105,13 +105,19 @@ function filteredAbsences() { const employee = $('employeeFilter').value, type =
 function countFleet(records, fleet) { return records.filter(r => r.fleet === fleet).length; }
 function countAbsence(type) { return state.absences.filter(r => r.type === type).length; }
 function isOvernight(record) { return /PERNOITE|\bSIM\b|\bS\b/i.test(`${record.city} ${record.overnight}`); }
+function rateKey(fleet, plate = '') { return `${fleet}|${norm(plate)}`; }
+function recordRate(record) { return Number(state.rates[rateKey(record.fleet, record.plate)] ?? state.rates[rateKey(record.fleet)] ?? 0); }
+function money(value) { return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+function renderCosts() { const total = sortedRecords().reduce((sum, r) => sum + recordRate(r), 0); $('costSummary').innerHTML = `<strong>Custo acumulado: ${money(total)}</strong>` + FLEET_ORDER.map(f => { const rs = state.records.filter(r => r.fleet === f); return `<span>${FLEETS[f]}: ${money(rs.reduce((s,r)=>s+recordRate(r),0))}</span>`; }).join(''); }
+function saveRate() { const fleet = $('rateFleet').value, plate = clean($('ratePlate').value), value = Number($('rateValue').value); if (!value || value < 0) return showToast('Informe um valor válido.'); state.rates[rateKey(fleet, plate)] = value; localStorage.setItem('frotaInsightRates', JSON.stringify(state.rates)); render(); showToast(`Valor salvo para ${plate || FLEETS[fleet]}.`); }
+function openDetail(kind) { const records = kind === 'all' ? sortedRecords() : sortedRecords().filter(r => r.fleet === kind); $('dashboard').classList.add('hidden'); $('indicatorView').classList.remove('hidden'); $('indicatorTitle').textContent = kind === 'all' ? 'Veículos-dia em rota' : FLEETS[kind]; $('indicatorTable').innerHTML = records.map(r => `<tr><td>${escapeHtml(displayDate(r))}</td><td>${escapeHtml(FLEETS[r.fleet])}</td><td>${escapeHtml(r.plate)}</td><td>${escapeHtml(r.driver)}</td><td>${escapeHtml(r.shipment)}</td><td>${escapeHtml(r.city)}</td><td>${money(recordRate(r))}</td></tr>`).join('') || '<tr><td colspan="7" class="no-results">Sem dados.</td></tr>'; window.scrollTo({top:0,behavior:'smooth'}); }
 
 function render() {
   $('dashboard').classList.remove('hidden'); $('clearData').hidden = false; const records = sortedRecords();
   $('importStatus').textContent = `${state.loadedKeys.size} arquivo(s) • ${records.length} rotas • ${state.absences.length} afastamentos`;
   $('metricUses').textContent = records.length; $('metricHouse').textContent = countFleet(records, 'COOPERRITA'); $('metricFixed').textContent = countFleet(records, 'TERCEIROS FIXOS'); $('metricSpot').textContent = countFleet(records, 'SPOT'); $('metricLeaves').textContent = countAbsence('FOLGA'); $('metricVacation').textContent = countAbsence('FÉRIAS'); $('metricMedical').textContent = countAbsence('ATESTADO'); $('metricOvernight').textContent = records.filter(isOvernight).length;
   setOptions('dateFilter', [...new Set(records.map(r => r.date))].filter(Boolean).sort(), 'Todos os dias', value => displayDate({ date: value, sheet: value })); setOptions('fleetFilter', FLEET_ORDER.filter(fleet => records.some(r => r.fleet === fleet)), 'Todas as frotas', fleet => FLEETS[fleet]); setOptions('plateFilter', [...new Set(records.map(r => r.plate))].sort(), 'Todas as placas'); setOptions('employeeFilter', [...new Set(state.absences.map(r => r.employee))].sort(), 'Todos'); setOptions('absenceFilter', [...new Set(state.absences.map(r => r.type))].sort(), 'Todos os tipos', type => ABSENCE_LABELS[type]);
-  renderCharts(records); renderTable(); renderAbsenceTable(); $('auditSummary').textContent = `${state.audit.filter(v => /concluída/.test(v)).length} arquivo(s) analisado(s).`; $('auditList').innerHTML = state.audit.slice(0, 100).map(item => `<li>${escapeHtml(item)}</li>`).join('');
+  renderCharts(records); renderTable(); renderAbsenceTable(); renderCosts(); $('auditSummary').textContent = `${state.audit.filter(v => /concluída/.test(v)).length} arquivo(s) analisado(s).`; $('auditList').innerHTML = state.audit.slice(0, 100).map(item => `<li>${escapeHtml(item)}</li>`).join('');
 }
 function renderCharts(records) {
   const daily = new Map(); records.forEach(r => { const day = r.date || r.sheet; if (!daily.has(day)) daily.set(day, { COOPERRITA: 0, 'TERCEIROS FIXOS': 0, SPOT: 0 }); daily.get(day)[r.fleet]++; });
@@ -130,3 +136,4 @@ $('chooseFiles').addEventListener('click', () => fileInput.click()); fileInput.a
 dropzone.addEventListener('click', e => { if (!e.target.closest('button')) fileInput.click(); }); dropzone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
 ['dragenter', 'dragover'].forEach(event => dropzone.addEventListener(event, e => { e.preventDefault(); dropzone.classList.add('dragging'); })); ['dragleave', 'drop'].forEach(event => dropzone.addEventListener(event, e => { e.preventDefault(); dropzone.classList.remove('dragging'); })); dropzone.addEventListener('drop', e => readFiles([...e.dataTransfer.files].filter(f => /\.(xlsx|xlsm|xlsb|xls|csv)$/i.test(f.name))));
 ['searchInput', 'dateFilter', 'fleetFilter', 'plateFilter'].forEach(id => $(id).addEventListener(id === 'searchInput' ? 'input' : 'change', renderTable)); ['employeeFilter', 'absenceFilter'].forEach(id => $(id).addEventListener('change', renderAbsenceTable)); $('clearData').addEventListener('click', clearAll); $('exportCsv').addEventListener('click', exportCsv);
+$('saveRate').addEventListener('click', saveRate); document.querySelectorAll('[data-detail]').forEach(el => el.addEventListener('click', () => openDetail(el.dataset.detail))); $('backDashboard').addEventListener('click', () => { $('indicatorView').classList.add('hidden'); $('dashboard').classList.remove('hidden'); });

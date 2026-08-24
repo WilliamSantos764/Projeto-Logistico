@@ -59,15 +59,16 @@
           </div>
 
           <div class="kpis">
-            <article class="kpi accent"><span class="kpi-label">Veículos-dia em rota</span><strong id="metricUses">0</strong><small>operações com rota ou embarque</small></article>
-            <article class="kpi house"><span class="kpi-label">Carros da casa</span><strong id="metricHouse">0</strong><small>utilizações COOPERRITA</small></article>
-            <article class="kpi fixed"><span class="kpi-label">Terceiros fixos</span><strong id="metricFixed">0</strong><small>utilizações no período</small></article>
-            <article class="kpi spot"><span class="kpi-label">SPOT</span><strong id="metricSpot">0</strong><small>utilizações no período</small></article>
+            <button class="kpi accent" data-detail="all"><span class="kpi-label">Veículos-dia em rota</span><strong id="metricUses">0</strong><small>operações com rota ou embarque</small></button>
+            <button class="kpi house" data-detail="COOPERRITA"><span class="kpi-label">Carros da casa</span><strong id="metricHouse">0</strong><small>clique para ver os dados</small></button>
+            <button class="kpi fixed" data-detail="TERCEIROS FIXOS"><span class="kpi-label">Terceiros fixos</span><strong id="metricFixed">0</strong><small>clique para ver os dados</small></button>
+            <button class="kpi spot" data-detail="SPOT"><span class="kpi-label">SPOT</span><strong id="metricSpot">0</strong><small>clique para ver os dados</small></button>
             <article class="kpi leave"><span class="kpi-label">Folgas</span><strong id="metricLeaves">0</strong><small>dias de folga registrados</small></article>
             <article class="kpi vacation"><span class="kpi-label">Férias</span><strong id="metricVacation">0</strong><small>dias de férias registrados</small></article>
             <article class="kpi medical"><span class="kpi-label">Atestados</span><strong id="metricMedical">0</strong><small>dias de atestado registrados</small></article>
             <article class="kpi"><span class="kpi-label">Pernoites</span><strong id="metricOvernight">0</strong><small>rotas com pernoite</small></article>
           </div>
+          <article class="card cost-card"><h3>Custos da frota</h3><p>Cadastre o valor pago por utilização. Sem placa, o valor vale para toda a categoria.</p><div class="cost-form"><select id="rateFleet"><option value="COOPERRITA">Carros da casa</option><option value="TERCEIROS FIXOS">Terceiros fixos</option><option value="SPOT">SPOT</option></select><input id="ratePlate" placeholder="Placa (opcional)" /><input id="rateValue" type="number" min="0" step="0.01" placeholder="Valor pago por uso" /><button class="primary-btn" id="saveRate" type="button">Salvar valor</button></div><div id="costSummary" class="cost-summary"></div></article>
 
           <div class="layout-grid">
             <article class="card chart-card">
@@ -119,6 +120,7 @@
             <div><strong>Leitura das planilhas</strong><span id="auditSummary"></span></div>
             <details><summary>Ver abas processadas e avisos</summary><ul id="auditList"></ul></details>
           </article>
+          <section id="indicatorView" class="card hidden"><button class="secondary-btn" id="backDashboard" type="button">← Voltar ao painel</button><h2 id="indicatorTitle">Detalhamento</h2><div class="table-wrap"><table><thead><tr><th>Data</th><th>Frota</th><th>Placa</th><th>Motorista</th><th>Embarque</th><th>Rota</th><th>Custo</th></tr></thead><tbody id="indicatorTable"></tbody></table></div></section>
         </section>
       </main>
       <footer>Frota Insight • Os dados são processados somente no seu navegador.</footer>
