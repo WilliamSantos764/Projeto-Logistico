@@ -1,10 +1,12 @@
 /* Frota Insight — processamento local de planilhas de rota */
-const state = { records: [], absences: [], audit: [], loadedKeys: new Set(), rates: JSON.parse(localStorage.getItem('frotaInsightRates') || '{}') };
+function loadSavedRates() { try { return JSON.parse(localStorage.getItem('frotaInsightRates') || '{}'); } catch { localStorage.removeItem?.('frotaInsightRates'); return {}; } }
+const state = { records: [], absences: [], audit: [], loadedKeys: new Set(), rates: loadSavedRates() };
 const $ = (id) => document.getElementById(id);
 const fileInput = $('fileInput'), folderInput = $('folderInput'), dropzone = $('dropzone');
 const FLEETS = { COOPERRITA: 'Carros da casa', 'TERCEIROS FIXOS': 'Terceiros fixos', SPOT: 'SPOT' };
 const FLEET_ORDER = ['COOPERRITA', 'TERCEIROS FIXOS', 'SPOT'];
 const ABSENCE_LABELS = { FOLGA: 'Folga', 'FÉRIAS': 'Férias', ATESTADO: 'Atestado', FALTA: 'Falta' };
+FLEET_ORDER.forEach(fleet => { if (state.rates[fleet] == null && state.rates[`${fleet}|`] != null) state.rates[fleet] = state.rates[`${fleet}|`]; });
 
 function clean(value) { return String(value ?? '').replace(/\s+/g, ' ').trim(); }
 function norm(value) { return clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase(); }
@@ -110,10 +112,26 @@ function recordRate(record) { return Number(state.rates[rateKey(record.fleet)] ?
 function money(value) { return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
 function renderCosts() { $('costSummary').innerHTML = FLEET_ORDER.map(f => { const uses = state.records.filter(r => r.fleet === f).length, value = Number(state.rates[rateKey(f)] || 0), total = uses * value; return `<button class="cost-result" data-detail="${f}"><strong>${FLEETS[f]}</strong><span>${uses} usos × ${money(value)}</span><b>${money(total)}</b></button>`; }).join(''); }
 function saveRate() { const fleet = $('rateFleet').value, value = Number($('rateValue').value); if (!value || value < 0) return showToast('Informe um valor válido.'); state.rates[rateKey(fleet)] = value; localStorage.setItem('frotaInsightRates', JSON.stringify(state.rates)); render(); showToast(`${FLEETS[fleet]}: ${money(value)} × utilizações calculado.`); }
-function openDetail(kind) { const records = kind === 'all' ? sortedRecords() : sortedRecords().filter(r => r.fleet === kind); $('dashboard').classList.add('hidden'); $('indicatorView').classList.remove('hidden'); $('indicatorTitle').textContent = kind === 'all' ? 'Veículos-dia em rota' : FLEETS[kind]; $('indicatorTable').innerHTML = records.map(r => `<tr><td>${escapeHtml(displayDate(r))}</td><td>${escapeHtml(FLEETS[r.fleet])}</td><td>${escapeHtml(r.plate)}</td><td>${escapeHtml(r.driver)}</td><td>${escapeHtml(r.shipment)}</td><td>${escapeHtml(r.city)}</td><td>${money(recordRate(r))}</td></tr>`).join('') || '<tr><td colspan="7" class="no-results">Sem dados.</td></tr>'; window.scrollTo({top:0,behavior:'smooth'}); }
+function openDetail(kind) {
+  const absenceType = ['FOLGA','FÉRIAS','ATESTADO','FALTA'].includes(kind);
+  $('dashboard').classList.add('hidden'); $('indicatorView').classList.remove('hidden');
+  if (absenceType) {
+    const items = sortedAbsences().filter(r => r.type === kind);
+    $('indicatorTitle').textContent = ABSENCE_LABELS[kind]; $('indicatorSubtitle').textContent = 'Funcionários e datas encontrados nas planilhas'; $('indicatorTotal').textContent = `${items.length} registro${items.length === 1 ? '' : 's'}`;
+    $('indicatorTable').innerHTML = items.map(r => `<tr><td>${escapeHtml(displayDate(r))}</td><td>${escapeHtml(ABSENCE_LABELS[kind])}</td><td>${escapeHtml(r.employee)}</td><td>—</td><td>—</td><td>${escapeHtml(r.sheet)}</td><td>—</td></tr>`).join('') || '<tr><td colspan="7" class="no-results">Sem dados.</td></tr>';
+  } else {
+    let records = kind === 'all' ? sortedRecords() : sortedRecords().filter(r => r.fleet === kind);
+    if (kind === 'OVERNIGHT') records = sortedRecords().filter(isOvernight);
+    const title = kind === 'all' ? 'Veículos-dia em rota' : kind === 'OVERNIGHT' ? 'Rotas com pernoite' : FLEETS[kind];
+    const total = records.reduce((sum, r) => sum + recordRate(r), 0);
+    $('indicatorTitle').textContent = title; $('indicatorSubtitle').textContent = `${records.length} utilização${records.length === 1 ? '' : 'ões'} que compõem este indicador`; $('indicatorTotal').textContent = money(total);
+    $('indicatorTable').innerHTML = records.map(r => `<tr><td>${escapeHtml(displayDate(r))}</td><td>${escapeHtml(FLEETS[r.fleet])}</td><td>${escapeHtml(r.plate)}</td><td>${escapeHtml(r.driver || '—')}</td><td>${escapeHtml(r.shipment || '—')}</td><td>${escapeHtml(r.city || '—')}</td><td>${money(recordRate(r))}</td></tr>`).join('') || '<tr><td colspan="7" class="no-results">Sem dados.</td></tr>';
+  }
+  window.scrollTo({top:0,behavior:'smooth'});
+}
 
 function render() {
-  $('dashboard').classList.remove('hidden'); $('clearData').hidden = false; const records = sortedRecords();
+  $('indicatorView').classList.add('hidden'); $('dashboard').classList.remove('hidden'); $('clearData').hidden = false; const records = sortedRecords();
   $('importStatus').textContent = `${state.loadedKeys.size} arquivo(s) • ${records.length} rotas • ${state.absences.length} afastamentos`;
   $('metricUses').textContent = records.length; $('metricHouse').textContent = countFleet(records, 'COOPERRITA'); $('metricFixed').textContent = countFleet(records, 'TERCEIROS FIXOS'); $('metricSpot').textContent = countFleet(records, 'SPOT'); $('metricLeaves').textContent = countAbsence('FOLGA'); $('metricVacation').textContent = countAbsence('FÉRIAS'); $('metricMedical').textContent = countAbsence('ATESTADO'); $('metricOvernight').textContent = records.filter(isOvernight).length;
   setOptions('dateFilter', [...new Set(records.map(r => r.date))].filter(Boolean).sort(), 'Todos os dias', value => displayDate({ date: value, sheet: value })); setOptions('fleetFilter', FLEET_ORDER.filter(fleet => records.some(r => r.fleet === fleet)), 'Todas as frotas', fleet => FLEETS[fleet]); setOptions('plateFilter', [...new Set(records.map(r => r.plate))].sort(), 'Todas as placas'); setOptions('employeeFilter', [...new Set(state.absences.map(r => r.employee))].sort(), 'Todos'); setOptions('absenceFilter', [...new Set(state.absences.map(r => r.type))].sort(), 'Todos os tipos', type => ABSENCE_LABELS[type]);
@@ -130,7 +148,7 @@ function renderCharts(records) {
 function renderTable() { const records = filteredRecords(); $('reportCount').textContent = `${records.length} rota${records.length === 1 ? '' : 's'} encontrada${records.length === 1 ? '' : 's'}`; $('usageTable').innerHTML = records.length ? records.map(r => `<tr><td>${escapeHtml(displayDate(r))}<br><small>${escapeHtml(r.sheet)}</small></td><td><span class="fleet-tag ${r.fleet === 'COOPERRITA' ? 'tag-house' : r.fleet === 'TERCEIROS FIXOS' ? 'tag-fixed' : 'tag-spot'}">${escapeHtml(FLEETS[r.fleet])}</span></td><td>${escapeHtml(r.plate)}</td><td>${escapeHtml(r.driver || '—')}</td><td>${escapeHtml(r.shipment || '—')}</td><td>${escapeHtml(r.city || '—')}${isOvernight(r) ? '<span class="overnight">Pernoite</span>' : ''}</td><td>${escapeHtml(r.source)}</td></tr>`).join('') : '<tr><td class="no-results" colspan="7">Nenhuma utilização corresponde aos filtros.</td></tr>'; }
 function renderAbsenceTable() { const records = filteredAbsences(); $('absenceCount').textContent = `${records.length} ocorrência${records.length === 1 ? '' : 's'} no período`; $('absenceTable').innerHTML = records.length ? records.map(r => `<tr><td>${escapeHtml(displayDate(r))}<br><small>${escapeHtml(r.sheet)}</small></td><td>${escapeHtml(r.employee)}</td><td><span class="absence-tag ${r.type === 'FOLGA' ? 'absence-folga' : r.type === 'FÉRIAS' ? 'absence-ferias' : r.type === 'ATESTADO' ? 'absence-atestado' : 'absence-falta'}">${escapeHtml(ABSENCE_LABELS[r.type])}</span></td><td>${escapeHtml(r.source)}</td></tr>`).join('') : '<tr><td class="no-results" colspan="4">Nenhum afastamento corresponde aos filtros.</td></tr>'; }
 function exportCsv() { const records = filteredRecords(), absences = filteredAbsences(); if (!records.length && !absences.length) { showToast('Não há dados para exportar.'); return; } const lines = [['Tipo','Data/Aba','Frota / Ocorrência','Placa / Funcionário','Motorista','Telefone','Embarque','Cidades / Rota','Arquivo'], ...records.map(r => ['Rota', displayDate(r), FLEETS[r.fleet], r.plate, r.driver, r.phone, r.shipment, r.city, r.source]), ...absences.map(r => ['Afastamento', displayDate(r), ABSENCE_LABELS[r.type], r.employee, '', '', '', '', r.source])]; const csv = lines.map(row => row.map(value => `"${String(value ?? '').replaceAll('"', '""')}"`).join(';')).join('\r\n'); const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })); const link = document.createElement('a'); link.href = url; link.download = 'relatorio-frota-completo.csv'; link.click(); URL.revokeObjectURL(url); }
-function clearAll() { state.records = []; state.absences = []; state.audit = []; state.loadedKeys.clear(); $('dashboard').classList.add('hidden'); $('clearData').hidden = true; $('importStatus').textContent = 'Nenhuma planilha importada'; fileInput.value = ''; folderInput.value = ''; showToast('Dados removidos do painel.'); }
+function clearAll() { state.records = []; state.absences = []; state.audit = []; state.loadedKeys.clear(); $('dashboard').classList.add('hidden'); $('indicatorView').classList.add('hidden'); $('clearData').hidden = true; $('importStatus').textContent = 'Nenhuma planilha importada'; fileInput.value = ''; folderInput.value = ''; showToast('Dados removidos do painel.'); }
 
 $('chooseFiles').addEventListener('click', () => fileInput.click()); fileInput.addEventListener('change', e => readFiles([...e.target.files])); folderInput.addEventListener('change', e => readFiles([...e.target.files]));
 dropzone.addEventListener('click', e => { if (!e.target.closest('button')) fileInput.click(); }); dropzone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
