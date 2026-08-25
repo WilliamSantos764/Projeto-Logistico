@@ -14,6 +14,9 @@
     <style>
       .dashboard-block{background:#edf4f7;border:1px solid #dbe8ed;border-radius:17px;padding:18px;margin-bottom:16px}.staff-block{background:#f7f8f5}.block-heading{display:flex;justify-content:space-between;align-items:end;margin-bottom:13px}.block-heading h3{margin:0;font-size:16px;color:#0d2b45}.block-heading p{margin:4px 0 0;font-size:12px;color:#6b7b89}.block-heading>span{font-size:11px;color:#1688cf;font-weight:700}.replace-note{background:#fff5dc;color:#956500;border-radius:999px;padding:5px 9px;font-size:10px;font-weight:700}@media(max-width:700px){.block-heading{align-items:start;flex-direction:column;gap:5px}.dashboard-block{padding:12px}.replace-note{width:100%;text-align:center}}
     </style>
+    <style>
+      html,body{max-width:100%;overflow-x:hidden}.layout-grid,.layout-grid>*{min-width:0}.chart-card{min-width:0;overflow:hidden}.bar-chart{width:100%;max-width:100%;overflow-x:auto;overflow-y:hidden;padding-bottom:5px}.bar-item{flex:1 0 42px}.insights-section{margin-top:18px;background:#fff;border:1px solid #dce6eb;border-radius:17px;padding:18px}.insights-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}.insight-card{position:relative;min-width:0;padding:18px}.insight-card h3{padding-right:35px}.vehicles-insight{grid-column:1/-1}.insight-icon{position:absolute;right:16px;top:14px;width:29px;height:29px;border-radius:8px;display:grid;place-items:center;font-weight:900}.medical-icon{background:#fdebed;color:#a43944}.leave-icon{background:#fff5dc;color:#9c6800}.vacation-icon{background:#e5f5ee;color:#217152}.vehicle-icon{background:#e9f2fd;color:#1c579b}.mini-ranking{list-style:none;margin:12px 0 0;padding:0}.mini-ranking li{border-top:1px solid #edf2f4}.ranking-action{width:100%;border:0;background:transparent;display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:center;padding:10px 0;text-align:left;cursor:pointer;color:#152536}.ranking-action:hover{color:#1688cf}.ranking-position{width:23px;height:23px;border-radius:6px;background:#edf4f7;display:grid;place-items:center;font-size:11px;font-weight:800}.ranking-action strong{font-size:13px}.ranking-action b{font-size:12px;color:#6b7b89}.fleet-rankings{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:12px}.fleet-ranking{border:1px solid #e1eaee;border-radius:10px;padding:12px;min-width:0}.fleet-ranking h4{margin:0 0 5px;color:#0d2b45;font-size:12px}.fleet-ranking .ranking-action strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@media(max-width:800px){.insights-grid,.fleet-rankings{grid-template-columns:1fr}.vehicles-insight{grid-column:auto}.bar-item{flex:0 0 44px}}@media(max-width:480px){.insights-section{padding:12px}.bar-chart{gap:5px}}
+    </style>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   </head>
   <body>
@@ -95,6 +98,16 @@
               <ol id="vehicleRanking" class="ranking"></ol>
             </article>
           </div>
+
+          <section class="insights-section">
+            <div class="block-heading"><div><h3>Análises rápidas</h3><p>Rankings automáticos do período importado</p></div><span>Clique em um nome ou placa para ver os registros</span></div>
+            <div class="insights-grid">
+              <article class="card insight-card"><span class="insight-icon medical-icon">+</span><h3>Mais atestados</h3><ol id="medicalRanking" class="mini-ranking"></ol></article>
+              <article class="card insight-card"><span class="insight-icon leave-icon">☾</span><h3>Mais folgas</h3><ol id="leaveRanking" class="mini-ranking"></ol></article>
+              <article class="card insight-card"><span class="insight-icon vacation-icon">◇</span><h3>Mais férias</h3><ol id="vacationRanking" class="mini-ranking"></ol></article>
+              <article class="card insight-card vehicles-insight"><span class="insight-icon vehicle-icon">↗</span><h3>Veículos mais usados por frota</h3><div id="fleetVehicleRankings" class="fleet-rankings"></div></article>
+            </div>
+          </section>
 
           <article class="card report-card">
             <div class="report-toolbar">

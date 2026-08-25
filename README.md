@@ -30,6 +30,9 @@ Uma utilização é contabilizada quando há uma placa de veículo e também uma
 - Cadastro de valor por utilização para carros da casa, terceiros fixos e SPOT
 - Cálculo automático: valor por uso × quantidade utilizada = gasto total
 - Indicadores clicáveis com uma aba interna contendo somente os registros daquele indicador
+- Rankings de funcionários com mais atestados, folgas e férias
+- Rankings dos veículos mais usados separados por carros da casa, terceiros fixos e SPOT
+- Gráfico diário responsivo com rolagem interna, sem ultrapassar a largura da tela
 
 ## Publicar no GitHub Pages
 

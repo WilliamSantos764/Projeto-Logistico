@@ -117,20 +117,29 @@ function rateKey(fleet) { return fleet; }
 function recordRate(record) { return Number(state.rates[rateKey(record.fleet)] ?? 0); }
 function money(value) { return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
 function renderCosts() { $('costSummary').innerHTML = FLEET_ORDER.map(f => { const uses = state.records.filter(r => r.fleet === f).length, value = Number(state.rates[rateKey(f)] || 0), total = uses * value; return `<button class="cost-result" data-detail="${f}"><strong>${FLEETS[f]}</strong><span>${uses} usos × ${money(value)}</span><b>${money(total)}</b></button>`; }).join(''); }
+function countRanking(items, field) { const counts = new Map(); items.forEach(item => { const key = clean(item[field]); if (key) counts.set(key, (counts.get(key) || 0) + 1); }); return [...counts.entries()].sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt-BR')); }
+function rankingRows(entries, kind, empty = 'Sem registros no período') { return entries.length ? entries.slice(0,5).map(([name,count],i) => `<li><button class="ranking-action" data-ranking-kind="${escapeHtml(kind)}" data-ranking-filter="${escapeHtml(name)}"><span class="ranking-position">${i+1}</span><strong>${escapeHtml(name)}</strong><b>${count}</b></button></li>`).join('') : `<li class="no-results">${empty}</li>`; }
+function renderInsights() {
+  $('medicalRanking').innerHTML = rankingRows(countRanking(state.absences.filter(r => r.type === 'ATESTADO'), 'employee'), 'ATESTADO');
+  $('leaveRanking').innerHTML = rankingRows(countRanking(state.absences.filter(r => r.type === 'FOLGA'), 'employee'), 'FOLGA');
+  $('vacationRanking').innerHTML = rankingRows(countRanking(state.absences.filter(r => r.type === 'FÉRIAS'), 'employee'), 'FÉRIAS');
+  $('fleetVehicleRankings').innerHTML = FLEET_ORDER.map(fleet => { const rank = countRanking(state.records.filter(r => r.fleet === fleet), 'plate'); return `<section class="fleet-ranking"><h4>${escapeHtml(FLEETS[fleet])}</h4><ol class="mini-ranking">${rankingRows(rank, fleet, 'Nenhum veículo utilizado')}</ol></section>`; }).join('');
+}
 function saveRate() { const fleet = $('rateFleet').value, value = Number($('rateValue').value); if (!value || value < 0) return showToast('Informe um valor válido.'); state.rates[rateKey(fleet)] = value; localStorage.setItem('frotaInsightRates', JSON.stringify(state.rates)); render(); showToast(`${FLEETS[fleet]}: ${money(value)} × utilizações calculado.`); }
-function openDetail(kind) {
+function openDetail(kind, filter = '') {
   const absenceType = ['FOLGA','FÉRIAS','ATESTADO','FALTA'].includes(kind);
   $('dashboard').classList.add('hidden'); $('indicatorView').classList.remove('hidden');
   if (absenceType) {
-    const items = sortedAbsences().filter(r => r.type === kind);
-    $('indicatorTitle').textContent = ABSENCE_LABELS[kind]; $('indicatorSubtitle').textContent = 'Funcionários e datas encontrados nas planilhas'; $('indicatorTotal').textContent = `${items.length} registro${items.length === 1 ? '' : 's'}`;
+    const items = sortedAbsences().filter(r => r.type === kind && (!filter || r.employee === filter));
+    $('indicatorTitle').textContent = `${ABSENCE_LABELS[kind]}${filter ? ` — ${filter}` : ''}`; $('indicatorSubtitle').textContent = 'Funcionários e datas encontrados nas planilhas'; $('indicatorTotal').textContent = `${items.length} registro${items.length === 1 ? '' : 's'}`;
     $('indicatorTable').innerHTML = items.map(r => `<tr><td>${escapeHtml(displayDate(r))}</td><td>${escapeHtml(ABSENCE_LABELS[kind])}</td><td>${escapeHtml(r.employee)}</td><td>—</td><td>—</td><td>${escapeHtml(r.sheet)}</td><td>—</td></tr>`).join('') || '<tr><td colspan="7" class="no-results">Sem dados.</td></tr>';
   } else {
     let records = kind === 'all' ? sortedRecords() : sortedRecords().filter(r => r.fleet === kind);
     if (kind === 'OVERNIGHT') records = sortedRecords().filter(isOvernight);
+    if (filter) records = records.filter(r => r.plate === filter);
     const title = kind === 'all' ? 'Veículos-dia em rota' : kind === 'OVERNIGHT' ? 'Rotas com pernoite' : FLEETS[kind];
     const total = records.reduce((sum, r) => sum + recordRate(r), 0);
-    $('indicatorTitle').textContent = title; $('indicatorSubtitle').textContent = `${records.length} utilização${records.length === 1 ? '' : 'ões'} que compõem este indicador`; $('indicatorTotal').textContent = money(total);
+    $('indicatorTitle').textContent = `${title}${filter ? ` — ${filter}` : ''}`; $('indicatorSubtitle').textContent = `${records.length} utilização${records.length === 1 ? '' : 'ões'} que compõem este indicador`; $('indicatorTotal').textContent = money(total);
     $('indicatorTable').innerHTML = records.map(r => `<tr><td>${escapeHtml(displayDate(r))}</td><td>${escapeHtml(FLEETS[r.fleet])}</td><td>${escapeHtml(r.plate)}</td><td>${escapeHtml(r.driver || '—')}</td><td>${escapeHtml(r.shipment || '—')}</td><td>${escapeHtml(r.city || '—')}</td><td>${money(recordRate(r))}</td></tr>`).join('') || '<tr><td colspan="7" class="no-results">Sem dados.</td></tr>';
   }
   window.scrollTo({top:0,behavior:'smooth'});
@@ -141,7 +150,7 @@ function render() {
   $('importStatus').textContent = `${state.loadedKeys.size} arquivo(s) • ${records.length} rotas • ${state.absences.length} afastamentos`;
   $('metricUses').textContent = records.length; $('metricHouse').textContent = countFleet(records, 'COOPERRITA'); $('metricFixed').textContent = countFleet(records, 'TERCEIROS FIXOS'); $('metricSpot').textContent = countFleet(records, 'SPOT'); $('metricLeaves').textContent = countAbsence('FOLGA'); $('metricVacation').textContent = countAbsence('FÉRIAS'); $('metricMedical').textContent = countAbsence('ATESTADO'); $('metricOvernight').textContent = records.filter(isOvernight).length;
   setOptions('dateFilter', [...new Set(records.map(r => r.date))].filter(Boolean).sort(), 'Todos os dias', value => displayDate({ date: value, sheet: value })); setOptions('fleetFilter', FLEET_ORDER.filter(fleet => records.some(r => r.fleet === fleet)), 'Todas as frotas', fleet => FLEETS[fleet]); setOptions('plateFilter', [...new Set(records.map(r => r.plate))].sort(), 'Todas as placas'); setOptions('employeeFilter', [...new Set(state.absences.map(r => r.employee))].sort(), 'Todos'); setOptions('absenceFilter', [...new Set(state.absences.map(r => r.type))].sort(), 'Todos os tipos', type => ABSENCE_LABELS[type]);
-  renderCharts(records); renderTable(); renderAbsenceTable(); renderCosts(); $('auditSummary').textContent = `${state.audit.filter(v => /concluída/.test(v)).length} arquivo(s) analisado(s).`; $('auditList').innerHTML = state.audit.slice(0, 100).map(item => `<li>${escapeHtml(item)}</li>`).join('');
+  renderCharts(records); renderTable(); renderAbsenceTable(); renderCosts(); renderInsights(); $('auditSummary').textContent = `${state.audit.filter(v => /concluída/.test(v)).length} arquivo(s) analisado(s).`; $('auditList').innerHTML = state.audit.slice(0, 100).map(item => `<li>${escapeHtml(item)}</li>`).join('');
 }
 function renderCharts(records) {
   const daily = new Map(); records.forEach(r => { const day = r.date || r.sheet; if (!daily.has(day)) daily.set(day, { COOPERRITA: 0, 'TERCEIROS FIXOS': 0, SPOT: 0 }); daily.get(day)[r.fleet]++; });
@@ -162,3 +171,4 @@ dropzone.addEventListener('click', e => { if (!e.target.closest('button')) fileI
 ['searchInput', 'dateFilter', 'fleetFilter', 'plateFilter'].forEach(id => $(id).addEventListener(id === 'searchInput' ? 'input' : 'change', renderTable)); ['employeeFilter', 'absenceFilter'].forEach(id => $(id).addEventListener('change', renderAbsenceTable)); $('clearData').addEventListener('click', clearAll); $('exportCsv').addEventListener('click', exportCsv);
 $('saveRate').addEventListener('click', saveRate); document.querySelectorAll('[data-detail]').forEach(el => el.addEventListener('click', () => openDetail(el.dataset.detail))); $('backDashboard').addEventListener('click', () => { $('indicatorView').classList.add('hidden'); $('dashboard').classList.remove('hidden'); });
 document.addEventListener('click', e => { const item = e.target.closest('.cost-result'); if (item) openDetail(item.dataset.detail); });
+document.addEventListener('click', e => { const item = e.target.closest('.ranking-action'); if (item) openDetail(item.dataset.rankingKind, item.dataset.rankingFilter); });
