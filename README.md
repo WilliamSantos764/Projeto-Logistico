@@ -19,10 +19,13 @@ Cada nova seleção de arquivos substitui integralmente a importação anterior.
 2. Escolha o arquivo Excel que contém as bases mensais.
 3. O sistema identifica as abas mensais completas e pergunta **Qual aba você quer importar?**.
 4. Selecione o mês e clique em **Importar aba escolhida**.
+5. Importe também a planilha operacional do mesmo mês na seção **Importar planilhas**.
 
 Somente a aba selecionada é carregada. Uma nova escolha substitui apenas a base de valores anterior e não modifica as planilhas de rotas, os indicadores ou os valores manuais já existentes no painel.
 
-No arquivo de referência foram reconhecidas as bases de janeiro a julho. O detector procura os cabeçalhos `EMBARQUE`, `DATA SAIDA` e `TOTAL FATURAMENTO`, separando as bases mensais das abas auxiliares, painéis e bases de despesas.
+No arquivo de referência foram reconhecidas as bases de janeiro a julho. O detector procura os cabeçalhos `EMBARQUE`, `DATA SAIDA` e `TOTAL FATURAMENTO`, separando as bases mensais das abas auxiliares, painéis e bases de despesas. Depois, localiza dinamicamente `CUSTO ROTA`, `ROTA`, `RETORNO ROTA`, `LEAD TIME DA ROTA`, `KM ROTA` e os demais campos, mesmo quando mudam de coluna.
+
+O vínculo entre as planilhas é feito pelo número do embarque. Para evitar totais incorretos, um embarque duplicado na base financeira é considerado apenas uma vez e fica sinalizado. A conferência também separa embarques **cruzados**, **sem custo** e **sem rota**. Se as planilhas forem de meses diferentes, o painel informa que nenhuma correspondência foi encontrada em vez de misturar os valores.
 
 ## O que o sistema identifica
 
@@ -48,6 +51,14 @@ Uma utilização é contabilizada quando há uma placa de veículo e também uma
 - Gráfico diário responsivo com rolagem interna, sem ultrapassar a largura da tela
 - Importador separado para a base de valores dos embarques
 - Detecção automática das abas mensais completas e escolha obrigatória do mês antes da importação
+- Cruzamento automático entre a planilha operacional e a base financeira pelo número do embarque
+- Total de faturamento, custo da rota, lucro, margem e custo médio somente dos embarques encontrados nas duas bases
+- Lucro calculado como `TOTAL FATURAMENTO - CUSTO ROTA`
+- Rankings clicáveis das rotas mais lucrativas, rotas de maior custo e motoristas com menor custo médio por embarque
+- Ranking das viagens mais demoradas usando `LEAD TIME DA ROTA` ou, quando necessário, a diferença entre saída e retorno
+- Tabela completa com busca e filtros para embarques cruzados, sem custo e sem rota
+- Detalhamento financeiro em tela fixa, com cabeçalho visível e rolagem somente dentro dos dados
+- Exportação dos dados financeiros cruzados junto do relatório CSV completo
 
 ## Publicar no GitHub Pages
 
