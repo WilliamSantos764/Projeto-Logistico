@@ -23,6 +23,9 @@
     <style>
       .vehicle-rate-panel{margin-top:18px;padding-top:18px;border-top:1px solid #e1eaee}.vehicle-rate-heading{display:flex;justify-content:space-between;gap:14px;align-items:start;margin-bottom:12px}.vehicle-rate-heading h4{margin:0;color:#0d2b45;font-size:14px}.vehicle-rate-heading p{margin:3px 0 0;font-size:11px}.vehicle-rate-badge{flex:0 0 auto;background:#e9f2fd;color:#1c579b;border-radius:999px;padding:6px 9px;font-size:10px;font-weight:800}.vehicle-rate-grid{display:grid;grid-template-columns:minmax(125px,.7fr) minmax(125px,.7fr) minmax(250px,1.4fr) minmax(180px,1fr) auto;gap:10px;align-items:end}.vehicle-rate-grid>label{display:flex;flex-direction:column;gap:5px;color:#6b7b89;font-size:11px;font-weight:750;min-width:0}.vehicle-rate-grid select{width:100%;height:42px;border:1px solid #cfdee4;border-radius:8px;background:#fff;color:#152536;padding:0 10px;font:14px inherit;min-width:0}.vehicle-rate-actions{display:flex;gap:8px;align-items:center}.vehicle-rate-actions button{height:42px;white-space:nowrap}.vehicle-rate-actions button:disabled,.currency-input input:disabled{cursor:not-allowed;opacity:.52}.vehicle-rate-status{min-height:17px;margin:9px 0 0!important;color:#526b79!important;font-size:11px!important}.individual-rate-note{display:block;width:max-content;margin-top:4px;padding:2px 6px;border-radius:999px;background:#e5f5ee;color:#217152;font-size:9px;font-weight:800;text-transform:uppercase}.cost-result span{line-height:1.4}html.detail-mode,body.detail-mode{overflow:hidden}.indicator-view{position:fixed;inset:0;z-index:1000;width:100%;height:100vh;height:100dvh;margin:0;border:0;border-radius:0;padding:18px clamp(14px,3vw,34px);background:#f3f7f8;display:flex;flex-direction:column;overflow:hidden}.indicator-view>.secondary-btn{align-self:flex-start;flex:0 0 auto}.indicator-view>.indicator-heading{flex:0 0 auto;margin:16px 0 12px}.indicator-view>.table-wrap{flex:1 1 auto;min-height:0;max-height:none;overflow:auto;overscroll-behavior:contain;background:#fff;border:1px solid #dce6eb;border-radius:12px;box-shadow:0 8px 24px rgba(13,43,69,.08)}.indicator-view th{top:0}.toast{z-index:1200}@media(max-width:1120px){.vehicle-rate-grid{grid-template-columns:1fr 1fr}.vehicle-rate-actions{grid-column:1/-1}}@media(max-width:560px){.vehicle-rate-heading{display:block}.vehicle-rate-badge{display:inline-block;margin-top:8px}.vehicle-rate-grid{grid-template-columns:1fr}.vehicle-rate-actions{grid-column:auto;flex-wrap:wrap}.vehicle-rate-actions button{flex:1}.indicator-view{padding:12px}.indicator-view>.indicator-heading{margin:12px 0 9px}#indicatorTotal{font-size:22px}}
     </style>
+    <style>
+      .value-import-panel{margin-top:14px;border:1px solid #cadfe8;border-radius:14px;background:linear-gradient(135deg,#f8fcfd,#edf7fa);padding:18px}.value-import-main{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center}.value-import-icon{width:45px;height:45px;border-radius:12px;display:grid;place-items:center;background:#0d2b45;color:#fff;font-size:20px;font-weight:900}.value-import-copy h2{margin:0;color:#0d2b45;font-size:17px}.value-import-copy p{margin:4px 0 0;color:#6b7b89;font-size:12px;line-height:1.45}.value-import-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-wrap:wrap}.value-import-status{width:100%;color:#526b79;font-size:11px;text-align:right}.cost-import-summary{margin-top:14px;padding:12px 14px;border:1px solid #d4e6ec;border-radius:10px;background:#fff;display:grid;grid-template-columns:auto 1fr;column-gap:10px;align-items:center}.cost-import-summary>span{grid-row:1/3;background:#e7f8f3;color:#0d836d;border-radius:7px;padding:7px 9px;font-size:9px;font-weight:850}.cost-import-summary strong{font-size:13px;color:#0d2b45}.cost-import-summary small{margin-top:2px;color:#6b7b89}.value-import-footnote{margin:10px 0 0!important;color:#6b7b89!important;font-size:10px!important}.cost-sheet-modal{position:fixed;inset:0;z-index:1450;padding:18px;display:grid;place-items:center;background:rgba(7,27,44,.64);backdrop-filter:blur(4px)}.cost-sheet-dialog{width:min(560px,100%);background:#fff;border-radius:16px;padding:23px;box-shadow:0 22px 70px rgba(6,25,40,.32)}.cost-sheet-dialog .eyebrow{margin:0 0 7px}.cost-sheet-dialog h2{margin:0;color:#0d2b45;font-size:22px}.cost-sheet-file{margin:7px 0 3px;color:#1688cf;font-size:12px;font-weight:800}.cost-sheet-help{margin:0 0 16px;color:#6b7b89;font-size:12px;line-height:1.5}.cost-sheet-dialog label{display:flex;flex-direction:column;gap:6px;color:#526b79;font-size:11px;font-weight:800}.cost-sheet-dialog select{width:100%;height:46px;border:1px solid #bdd3dc;border-radius:9px;background:#fff;color:#152536;padding:0 11px;font:14px inherit}.cost-sheet-note{margin:12px 0 0;padding:10px 11px;border-radius:8px;background:#fff7e5;color:#815b08;font-size:11px;line-height:1.4}.cost-sheet-buttons{display:flex;justify-content:flex-end;gap:9px;margin-top:18px}html.cost-sheet-open,body.cost-sheet-open{overflow:hidden}.cost-sheet-modal~.toast,.toast{z-index:1600}@media(max-width:760px){.value-import-main{grid-template-columns:auto 1fr}.value-import-actions{grid-column:1/-1;justify-content:flex-start}.value-import-status{text-align:left}.cost-sheet-dialog{padding:19px}}@media(max-width:480px){.value-import-icon{display:none}.value-import-main{grid-template-columns:1fr}.value-import-actions{grid-column:auto}.value-import-actions button{width:100%}.cost-sheet-buttons{flex-direction:column-reverse}.cost-sheet-buttons button{width:100%}}
+    </style>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   </head>
   <body>
@@ -64,6 +67,21 @@
             <span class="replace-note">Nova importação substitui a anterior</span>
             <button class="text-btn danger" id="clearData" type="button" hidden>Limpar dados</button>
           </div>
+        </section>
+
+        <section class="value-import-panel" aria-label="Importar base de valores dos embarques">
+          <div class="value-import-main">
+            <div class="value-import-icon" aria-hidden="true">R$</div>
+            <div class="value-import-copy"><h2>Base de valores dos embarques</h2><p>Importe a planilha de custos. O sistema localizará as bases mensais e perguntará qual aba deve ser carregada.</p></div>
+            <div class="value-import-actions">
+              <input id="costFileInput" type="file" accept=".xlsx,.xls,.xlsm,.xlsb" hidden />
+              <button class="primary-btn" id="chooseCostFile" type="button">Selecionar base de valores</button>
+              <button class="secondary-btn" id="changeCostSheet" type="button" hidden>Escolher outra aba</button>
+              <span class="value-import-status" id="costImportStatus">Nenhuma base de valores importada</span>
+            </div>
+          </div>
+          <div class="cost-import-summary hidden" id="costImportSummary"><span>BASE PRONTA</span><strong id="costBaseSheet"></strong><small id="costBaseDetails"></small></div>
+          <p class="value-import-footnote">Esta importação é separada da planilha de rotas e não altera nenhum indicador atual. Nesta etapa, a aba escolhida ficará pronta para os próximos recursos.</p>
         </section>
 
         <section id="dashboard" class="dashboard hidden" aria-live="polite">
@@ -178,6 +196,17 @@
         <section id="indicatorView" class="card indicator-view hidden" role="dialog" aria-modal="true" aria-labelledby="indicatorTitle"><button class="secondary-btn" id="backDashboard" type="button">← Voltar ao painel</button><div class="indicator-heading"><div><p class="eyebrow">DETALHAMENTO DO INDICADOR</p><h2 id="indicatorTitle">Detalhamento</h2><p id="indicatorSubtitle"></p></div><strong id="indicatorTotal"></strong></div><div class="table-wrap" id="indicatorTableWrap"><table><thead><tr><th>Data</th><th>Frota</th><th>Placa</th><th>Motorista</th><th>Embarque</th><th>Rota</th><th>Custo</th></tr></thead><tbody id="indicatorTable"></tbody></table></div></section>
       </main>
       <footer>Frota Insight • Os dados são processados somente no seu navegador.</footer>
+    </div>
+    <div id="costSheetModal" class="cost-sheet-modal hidden" role="dialog" aria-modal="true" aria-labelledby="costSheetTitle">
+      <div class="cost-sheet-dialog">
+        <p class="eyebrow">BASE DE VALORES DOS EMBARQUES</p>
+        <h2 id="costSheetTitle">Qual aba você quer importar?</h2>
+        <p class="cost-sheet-file" id="costSheetFileName"></p>
+        <p class="cost-sheet-help" id="costSheetHelp"></p>
+        <label><span>Aba do mês</span><select id="costSheetSelect"></select></label>
+        <p class="cost-sheet-note">Somente a aba selecionada será carregada. A base mensal anterior será substituída, sem mexer nos dados e indicadores da frota.</p>
+        <div class="cost-sheet-buttons"><button class="secondary-btn" id="cancelCostSheet" type="button">Cancelar</button><button class="primary-btn" id="confirmCostSheet" type="button">Importar aba escolhida</button></div>
+      </div>
     </div>
     <div id="toast" class="toast" role="status"></div>
     <script src="app.js"></script>

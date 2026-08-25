@@ -1,8 +1,8 @@
 /* Frota Insight — processamento local de planilhas de rota */
 function loadSavedRates() { try { return JSON.parse(localStorage.getItem('frotaInsightRates') || '{}'); } catch { localStorage.removeItem?.('frotaInsightRates'); return {}; } }
-const state = { records: [], absences: [], audit: [], loadedKeys: new Set(), rates: loadSavedRates() };
+const state = { records: [], absences: [], audit: [], loadedKeys: new Set(), rates: loadSavedRates(), costBase: null, costWorkbook: null, costFileName: '', pendingCost: null };
 const $ = (id) => document.getElementById(id);
-const fileInput = $('fileInput'), folderInput = $('folderInput'), dropzone = $('dropzone');
+const fileInput = $('fileInput'), folderInput = $('folderInput'), dropzone = $('dropzone'), costFileInput = $('costFileInput');
 const FLEETS = { COOPERRITA: 'Carros da casa', 'TERCEIROS FIXOS': 'Terceiros fixos', SPOT: 'SPOT' };
 const FLEET_ORDER = ['COOPERRITA', 'TERCEIROS FIXOS', 'SPOT'];
 const ABSENCE_LABELS = { FOLGA: 'Folga', 'FÉRIAS': 'Férias', ATESTADO: 'Atestado', FALTA: 'Falta' };
@@ -106,6 +106,63 @@ async function readFiles(files) {
   }
   if (!processed) { $('importStatus').textContent = 'Nenhum arquivo pôde ser processado'; showToast('Não foi possível carregar os novos dados.'); return; } render(); showToast(`Dados anteriores removidos. ${processed} arquivo(s) carregado(s).`);
 }
+function costHeaderIndex(rows, requireValueColumn = true) {
+  return rows.findIndex(row => {
+    const values = row.map(norm), hasShipment = values.some(value => value === 'EMBARQUE'), hasDate = values.some(value => /DATA.*SAIDA/.test(value));
+    const hasTotalValue = values.some(value => /TOTAL.*FATURAMENTO/.test(value));
+    return hasShipment && hasDate && (!requireValueColumn || hasTotalValue);
+  });
+}
+function costSheetPreview(sheet) {
+  return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false, blankrows: false, range: { s: { r: 0, c: 0 }, e: { r: 14, c: 40 } } });
+}
+function detectedCostSheets(workbook) {
+  const complete = workbook.SheetNames.filter(name => costHeaderIndex(costSheetPreview(workbook.Sheets[name])) >= 0);
+  if (complete.length) return { names: complete, automatic: true };
+  const namedBases = workbook.SheetNames.filter(name => /\bBASE\b/.test(norm(name)) && !/\bCUSTO\b/.test(norm(name)));
+  return { names: namedBases.length ? namedBases : [...workbook.SheetNames], automatic: false };
+}
+function costMonthLabel(sheetName) {
+  const name = norm(sheetName), months = [['JAN', 'Janeiro'], ['FEV', 'Fevereiro'], ['MAR', 'Março'], ['ABR', 'Abril'], ['MAI', 'Maio'], ['JUN', 'Junho'], ['JUL', 'Julho'], ['AGO', 'Agosto'], ['SET', 'Setembro'], ['OUT', 'Outubro'], ['NOV', 'Novembro'], ['DEZ', 'Dezembro']];
+  return months.find(([token]) => new RegExp(`\\b${token}`).test(name))?.[1] || '';
+}
+function costSheetOptionLabel(sheetName) { const month = costMonthLabel(sheetName); return month ? `${month} — ${clean(sheetName)}` : clean(sheetName); }
+function setCostSheetModal(open) { $('costSheetModal').classList.toggle('hidden', !open); document.documentElement.classList.toggle('cost-sheet-open', open); document.body.classList.toggle('cost-sheet-open', open); }
+function openCostSheetPicker(workbook, fileName) {
+  const detected = detectedCostSheets(workbook); if (!detected.names.length) throw new Error('O arquivo não possui abas para selecionar.');
+  state.pendingCost = { workbook, fileName, names: detected.names, automatic: detected.automatic };
+  $('costSheetSelect').innerHTML = detected.names.map((name, index) => `<option value="${index}">${escapeHtml(costSheetOptionLabel(name))}</option>`).join(''); $('costSheetSelect').value = '0';
+  $('costSheetFileName').textContent = fileName; $('costSheetHelp').textContent = detected.automatic ? `${detected.names.length} ${detected.names.length === 1 ? 'base mensal reconhecida' : 'bases mensais reconhecidas'}. Escolha qual mês deseja carregar.` : 'Não foi possível reconhecer automaticamente uma base mensal. Escolha uma das abas disponíveis.';
+  setCostSheetModal(true); $('costSheetSelect').focus?.({ preventScroll: true });
+}
+async function prepareCostFile(file) {
+  if (!file) return;
+  if (!window.XLSX) { showToast('Não foi possível carregar o leitor de Excel. Verifique sua conexão e tente novamente.'); return; }
+  const previousStatus = state.costBase ? `${state.costBase.fileName} • ${clean(state.costBase.sheetName)} • ${state.costBase.recordCount} embarque${state.costBase.recordCount === 1 ? '' : 's'}` : 'Nenhuma base de valores importada';
+  $('costImportStatus').textContent = `Analisando as abas de ${file.name}...`;
+  try { const data = await file.arrayBuffer(), workbook = XLSX.read(data, { type: 'array', cellDates: true }); openCostSheetPicker(workbook, file.name); $('costImportStatus').textContent = `${file.name} • escolha uma aba para concluir`; }
+  catch (error) { $('costImportStatus').textContent = previousStatus; showToast(`Não foi possível ler a base de valores: ${error.message}`); }
+}
+function closeCostSheetPicker() { setCostSheetModal(false); state.pendingCost = null; renderCostBaseStatus(); }
+function renderCostBaseStatus() {
+  const base = state.costBase;
+  if (!base) { $('costImportStatus').textContent = 'Nenhuma base de valores importada'; $('costImportSummary').classList.add('hidden'); $('changeCostSheet').hidden = true; return; }
+  $('costImportStatus').textContent = `${base.fileName} • ${clean(base.sheetName)} • ${base.recordCount} embarque${base.recordCount === 1 ? '' : 's'}`;
+  const headerCount = base.headers.filter(Boolean).length; $('costBaseSheet').textContent = clean(base.sheetName); $('costBaseDetails').textContent = `${base.recordCount} embarque${base.recordCount === 1 ? '' : 's'} • ${headerCount} coluna${headerCount === 1 ? '' : 's'} detectada${headerCount === 1 ? '' : 's'}`;
+  $('costImportSummary').classList.remove('hidden'); $('changeCostSheet').hidden = false;
+}
+function confirmCostSheetImport() {
+  const pending = state.pendingCost, selectedIndex = Number($('costSheetSelect').value), sheetName = pending?.names[selectedIndex]; if (!pending || !Number.isInteger(selectedIndex) || !sheetName) return showToast('Escolha uma aba válida para importar.');
+  try {
+    const rows = XLSX.utils.sheet_to_json(pending.workbook.Sheets[sheetName], { header: 1, defval: '', raw: false, blankrows: false });
+    let headerIndex = costHeaderIndex(rows); if (headerIndex < 0) headerIndex = costHeaderIndex(rows, false);
+    const headers = headerIndex >= 0 ? rows[headerIndex].map(clean) : [], shipmentColumn = headers.findIndex(header => norm(header) === 'EMBARQUE');
+    const recordCount = headerIndex >= 0 && shipmentColumn >= 0 ? rows.slice(headerIndex + 1).filter(row => hasValue(row[shipmentColumn])).length : rows.filter(row => row.some(hasValue)).length;
+    state.costBase = { fileName: pending.fileName, sheetName, rows, headerIndex, headers, recordCount }; state.costWorkbook = pending.workbook; state.costFileName = pending.fileName;
+    setCostSheetModal(false); state.pendingCost = null; renderCostBaseStatus(); showToast(`Aba ${clean(sheetName)} importada para a base de valores.`);
+  } catch (error) { showToast(`Não foi possível importar a aba escolhida: ${error.message}`); }
+}
+function reopenCostSheetPicker() { if (state.costWorkbook) openCostSheetPicker(state.costWorkbook, state.costFileName); else costFileInput.click(); }
 function sortedRecords() { return [...state.records].sort((a, b) => String(a.date).localeCompare(String(b.date), 'pt-BR') || a.fleet.localeCompare(b.fleet) || a.plate.localeCompare(b.plate)); }
 function sortedAbsences() { return [...state.absences].sort((a, b) => String(a.date).localeCompare(String(b.date), 'pt-BR') || a.employee.localeCompare(b.employee)); }
 function setOptions(id, values, label, formatter = value => value) { const select = $(id), selected = select.value; select.innerHTML = `<option value="">${label}</option>` + values.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(formatter(value))}</option>`).join(''); if (values.includes(selected)) select.value = selected; }
@@ -236,10 +293,11 @@ function exportCsv() { const records = filteredRecords(), absences = filteredAbs
 function clearAll() { state.records = []; state.absences = []; state.audit = []; state.loadedKeys.clear(); $('dashboard').classList.add('hidden'); $('indicatorView').classList.add('hidden'); setDetailMode(false); $('clearData').hidden = true; $('importStatus').textContent = 'Nenhuma planilha importada'; fileInput.value = ''; folderInput.value = ''; showToast('Dados removidos do painel.'); }
 
 $('chooseFiles').addEventListener('click', () => fileInput.click()); fileInput.addEventListener('change', e => readFiles([...e.target.files])); folderInput.addEventListener('change', e => readFiles([...e.target.files]));
+$('chooseCostFile').addEventListener('click', () => { costFileInput.value = ''; costFileInput.click(); }); costFileInput.addEventListener('change', e => prepareCostFile(e.target.files?.[0])); $('confirmCostSheet').addEventListener('click', confirmCostSheetImport); $('cancelCostSheet').addEventListener('click', closeCostSheetPicker); $('changeCostSheet').addEventListener('click', reopenCostSheetPicker); $('costSheetModal').addEventListener('click', e => { if (e.target === $('costSheetModal')) closeCostSheetPicker(); });
 dropzone.addEventListener('click', e => { if (!e.target.closest('button')) fileInput.click(); }); dropzone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
 ['dragenter', 'dragover'].forEach(event => dropzone.addEventListener(event, e => { e.preventDefault(); dropzone.classList.add('dragging'); })); ['dragleave', 'drop'].forEach(event => dropzone.addEventListener(event, e => { e.preventDefault(); dropzone.classList.remove('dragging'); })); dropzone.addEventListener('drop', e => readFiles([...e.dataTransfer.files].filter(f => /\.(xlsx|xlsm|xlsb|xls|csv)$/i.test(f.name))));
 ['searchInput', 'dateFilter', 'fleetFilter', 'plateFilter'].forEach(id => $(id).addEventListener(id === 'searchInput' ? 'input' : 'change', renderTable)); ['employeeFilter', 'absenceFilter'].forEach(id => $(id).addEventListener('change', renderAbsenceTable)); $('clearData').addEventListener('click', clearAll); $('exportCsv').addEventListener('click', exportCsv);
 $('saveRate').addEventListener('click', saveRate); $('vehicleRateFleet').addEventListener('change', renderVehicleRateEditor); $('vehicleRatePlate').addEventListener('change', renderVehicleRateUsages); $('vehicleRateUsage').addEventListener('change', loadVehicleRateValue); $('saveVehicleRate').addEventListener('click', saveVehicleRate); $('removeVehicleRate').addEventListener('click', removeVehicleRate); document.querySelectorAll('[data-detail]').forEach(el => el.addEventListener('click', () => openDetail(el.dataset.detail))); $('backDashboard').addEventListener('click', closeDetail);
 document.addEventListener('click', e => { const item = e.target.closest('.cost-result'); if (item) openDetail(item.dataset.detail); });
 document.addEventListener('click', e => { const item = e.target.closest('.ranking-action'); if (item) openDetail(item.dataset.rankingKind, item.dataset.rankingFilter); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('indicatorView').classList.contains('hidden')) closeDetail(); });
+document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (!$('costSheetModal').classList.contains('hidden')) closeCostSheetPicker(); else if (!$('indicatorView').classList.contains('hidden')) closeDetail(); });
