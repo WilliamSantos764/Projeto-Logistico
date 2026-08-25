@@ -11,7 +11,7 @@ Projeto estático em HTML, CSS e JavaScript para analisar planilhas diárias de 
 
 Também é possível arrastar os arquivos diretamente para o painel. Todos os cálculos acontecem localmente no navegador; nenhum dado é enviado para um servidor.
 
-Cada nova seleção de arquivos substitui integralmente a importação anterior. Os registros antigos são removidos, enquanto os valores padrão por categoria e os valores individuais por placa permanecem salvos no navegador.
+Cada nova seleção de arquivos substitui integralmente a importação anterior. Os registros antigos são removidos, enquanto os valores padrão por categoria e os ajustes individuais por utilização permanecem salvos no navegador quando a mesma linha é importada novamente.
 
 ## O que o sistema identifica
 
@@ -28,8 +28,8 @@ Uma utilização é contabilizada quando há uma placa de veículo e também uma
 - Tabelas detalhadas com filtros e exportação de relatório completo em CSV
 - Auditoria das abas processadas e de suas seções operacionais
 - Valores por utilização editáveis separadamente para carros da casa, terceiros fixos e SPOT
-- Valor individual por placa para veículos com preço diferente do padrão da categoria
-- Cálculo automático usando o valor individual quando existir e o valor padrão para as demais placas
+- Valor individual por utilização, selecionando categoria, placa, data e rota exatas
+- Cálculo automático usando o valor individual somente na linha escolhida e o valor padrão em todas as demais utilizações, inclusive da mesma placa
 - Indicadores clicáveis com uma tela interna fixa contendo somente os registros daquele indicador
 - Cabeçalho do detalhamento sempre visível e rolagem restrita à tabela de dados
 - Rankings de funcionários com mais atestados, folgas e férias

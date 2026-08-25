@@ -115,33 +115,53 @@ function countFleet(records, fleet) { return records.filter(r => r.fleet === fle
 function countAbsence(type) { return state.absences.filter(r => r.type === type).length; }
 function isOvernight(record) { return /PERNOITE|\bSIM\b|\bS\b/i.test(`${record.city} ${record.overnight}`); }
 function rateKey(fleet) { return fleet; }
-function vehicleRateKey(fleet, plate) { return `VEHICLE|${fleet}|${norm(plate)}`; }
-function hasVehicleRate(fleet, plate) { return Object.prototype.hasOwnProperty.call(state.rates, vehicleRateKey(fleet, plate)); }
-function recordRate(record) { return Number(state.rates[vehicleRateKey(record.fleet, record.plate)] ?? state.rates[rateKey(record.fleet)] ?? 0); }
+function usageRateKey(record) {
+  const identity = clean(record.id) || [record.source, record.sheet, record.date, record.fleet, record.plate, record.shipment, record.city, record.driver].map(norm).join('|');
+  return `USAGE|${identity}`;
+}
+function hasUsageRate(record) { return Boolean(record) && Object.prototype.hasOwnProperty.call(state.rates, usageRateKey(record)); }
+function normalizedRate(value, fallback = 0) { const number = Number(clean(value).replace(',', '.')); return Number.isFinite(number) && number >= 0 ? Math.round((number + Number.EPSILON) * 100) / 100 : fallback; }
+function recordRate(record) { const defaultValue = normalizedRate(state.rates[rateKey(record.fleet)], 0); return hasUsageRate(record) ? normalizedRate(state.rates[usageRateKey(record)], defaultValue) : defaultValue; }
+function sumRecordCosts(records) { return records.reduce((cents, record) => cents + Math.round(recordRate(record) * 100), 0) / 100; }
 function money(value) { return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
 function persistRates() { localStorage.setItem('frotaInsightRates', JSON.stringify(state.rates)); }
 function renderCosts() {
   const inputs = { COOPERRITA: $('rateHouse'), 'TERCEIROS FIXOS': $('rateFixed'), SPOT: $('rateSpot') };
-  FLEET_ORDER.forEach(fleet => { if (document.activeElement !== inputs[fleet]) inputs[fleet].value = Number(state.rates[rateKey(fleet)] || 0); });
+  FLEET_ORDER.forEach(fleet => { if (document.activeElement !== inputs[fleet]) inputs[fleet].value = normalizedRate(state.rates[rateKey(fleet)], 0); });
   $('costSummary').innerHTML = FLEET_ORDER.map(fleet => {
-    const records = state.records.filter(record => record.fleet === fleet), defaultValue = Number(state.rates[rateKey(fleet)] || 0);
-    const customPlates = new Set(records.filter(record => hasVehicleRate(fleet, record.plate)).map(record => norm(record.plate)));
-    const total = records.reduce((sum, record) => sum + recordRate(record), 0);
-    const customLabel = customPlates.size ? ` • ${customPlates.size} placa${customPlates.size === 1 ? '' : 's'} com valor individual` : '';
-    return `<button class="cost-result" data-detail="${fleet}"><strong>${FLEETS[fleet]}</strong><span>${records.length} usos • padrão ${money(defaultValue)}${customLabel}</span><b>${money(total)}</b></button>`;
+    const records = state.records.filter(record => record.fleet === fleet), defaultValue = normalizedRate(state.rates[rateKey(fleet)], 0), defaultCents = Math.round(defaultValue * 100);
+    const customUses = records.filter(hasUsageRate).length;
+    const groups = new Map(); records.forEach(record => { const cents = Math.round(recordRate(record) * 100); groups.set(cents, (groups.get(cents) || 0) + 1); });
+    const formula = [...groups.entries()].sort(([a], [b]) => a === defaultCents ? -1 : b === defaultCents ? 1 : a - b).map(([cents, uses]) => `${uses} × ${money(cents / 100)}`).join(' + ') || `padrão ${money(defaultValue)}`;
+    const total = sumRecordCosts(records);
+    const customLabel = customUses ? ` • ${customUses} utilização${customUses === 1 ? '' : 'ões'} com valor individual` : '';
+    return `<button class="cost-result" data-detail="${fleet}"><strong>${FLEETS[fleet]}</strong><span>${records.length} usos • ${formula}${customLabel}</span><b>${money(total)}</b></button>`;
   }).join('');
 }
+function selectedUsage() {
+  const key = $('vehicleRateUsage').value;
+  return key ? state.records.find(record => usageRateKey(record) === key) || null : null;
+}
+function usageOptionLabel(record) {
+  const route = clean(record.city) || 'Rota não informada', shipment = clean(record.shipment);
+  return `${displayDate(record)} • ${route}${shipment ? ` • Emb. ${shipment}` : ''}`;
+}
 function loadVehicleRateValue() {
-  const fleet = $('vehicleRateFleet').value, plate = $('vehicleRatePlate').value, input = $('vehicleRateValue'), status = $('vehicleRateStatus'), removeButton = $('removeVehicleRate');
-  const hasOverride = Boolean(fleet && plate && hasVehicleRate(fleet, plate));
-  input.disabled = !plate; removeButton.disabled = !hasOverride;
-  input.value = hasOverride ? Number(state.rates[vehicleRateKey(fleet, plate)]) : '';
-  input.placeholder = plate ? `Padrão: ${money(state.rates[rateKey(fleet)] || 0)}` : 'Selecione uma placa';
-  if (!plate) status.textContent = 'Importe uma planilha para escolher uma placa.';
-  else if (hasOverride) {
-    const uses = state.records.filter(record => record.fleet === fleet && norm(record.plate) === norm(plate)).length;
-    status.textContent = `${plate}: valor individual de ${money(state.rates[vehicleRateKey(fleet, plate)])} aplicado em ${uses} utilização${uses === 1 ? '' : 'ões'}.`;
-  } else status.textContent = `${plate}: usando o valor padrão de ${money(state.rates[rateKey(fleet)] || 0)} por utilização.`;
+  const fleet = $('vehicleRateFleet').value, record = selectedUsage(), input = $('vehicleRateValue'), status = $('vehicleRateStatus'), removeButton = $('removeVehicleRate');
+  const hasOverride = hasUsageRate(record);
+  input.disabled = !record; removeButton.disabled = !hasOverride;
+  input.value = hasOverride ? normalizedRate(state.rates[usageRateKey(record)], 0) : '';
+  input.placeholder = record ? `Padrão: ${money(normalizedRate(state.rates[rateKey(fleet)], 0))}` : 'Selecione uma utilização';
+  if (!record) status.textContent = 'Escolha a categoria, a placa e a utilização que deseja alterar.';
+  else if (hasOverride) status.textContent = `${displayDate(record)} • ${record.plate}: ${money(normalizedRate(state.rates[usageRateKey(record)], 0))} aplicado somente nesta utilização.`;
+  else status.textContent = `${displayDate(record)} • ${record.plate}: usando o padrão de ${money(normalizedRate(state.rates[rateKey(fleet)], 0))} somente nesta utilização.`;
+}
+function renderVehicleRateUsages() {
+  const fleet = $('vehicleRateFleet').value, plate = $('vehicleRatePlate').value, usageSelect = $('vehicleRateUsage'), selectedKey = usageSelect.value;
+  const records = sortedRecords().filter(record => record.fleet === fleet && norm(record.plate) === norm(plate));
+  usageSelect.innerHTML = records.length ? records.map(record => `<option value="${escapeHtml(usageRateKey(record))}">${escapeHtml(usageOptionLabel(record))}</option>`).join('') : '<option value="">Nenhuma utilização encontrada</option>';
+  const keys = records.map(usageRateKey); usageSelect.value = keys.includes(selectedKey) ? selectedKey : (keys[0] || '');
+  loadVehicleRateValue();
 }
 function renderVehicleRateEditor() {
   const fleetSelect = $('vehicleRateFleet'), plateSelect = $('vehicleRatePlate');
@@ -150,7 +170,7 @@ function renderVehicleRateEditor() {
   const plates = [...new Set(state.records.filter(record => record.fleet === fleetSelect.value).map(record => clean(record.plate)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   plateSelect.innerHTML = plates.length ? plates.map(plate => `<option value="${escapeHtml(plate)}">${escapeHtml(plate)}</option>`).join('') : '<option value="">Nenhuma placa importada</option>';
   plateSelect.value = plates.includes(selectedPlate) ? selectedPlate : (plates[0] || '');
-  loadVehicleRateValue();
+  renderVehicleRateUsages();
 }
 function countRanking(items, field) { const counts = new Map(); items.forEach(item => { const key = clean(item[field]); if (key) counts.set(key, (counts.get(key) || 0) + 1); }); return [...counts.entries()].sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt-BR')); }
 function rankingRows(entries, kind, empty = 'Sem registros no período') { return entries.length ? entries.slice(0,5).map(([name,count],i) => `<li><button class="ranking-action" data-ranking-kind="${escapeHtml(kind)}" data-ranking-filter="${escapeHtml(name)}"><span class="ranking-position">${i+1}</span><strong>${escapeHtml(name)}</strong><b>${count}</b></button></li>`).join('') : `<li class="no-results">${empty}</li>`; }
@@ -160,19 +180,19 @@ function renderInsights() {
   $('vacationRanking').innerHTML = rankingRows(countRanking(state.absences.filter(r => r.type === 'FÉRIAS'), 'employee'), 'FÉRIAS');
   $('fleetVehicleRankings').innerHTML = FLEET_ORDER.map(fleet => { const rank = countRanking(state.records.filter(r => r.fleet === fleet), 'plate'); return `<section class="fleet-ranking"><h4>${escapeHtml(FLEETS[fleet])}</h4><ol class="mini-ranking">${rankingRows(rank, fleet, 'Nenhum veículo utilizado')}</ol></section>`; }).join('');
 }
-function saveRate() { const values = { COOPERRITA: Number($('rateHouse').value || 0), 'TERCEIROS FIXOS': Number($('rateFixed').value || 0), SPOT: Number($('rateSpot').value || 0) }; if (Object.values(values).some(value => !Number.isFinite(value) || value < 0)) return showToast('Informe somente valores válidos e positivos.'); Object.assign(state.rates, values); persistRates(); render(); showToast('Valores padrão por uso atualizados com sucesso.'); }
+function saveRate() { const values = { COOPERRITA: normalizedRate($('rateHouse').value, NaN), 'TERCEIROS FIXOS': normalizedRate($('rateFixed').value, NaN), SPOT: normalizedRate($('rateSpot').value, NaN) }; if (Object.values(values).some(value => !Number.isFinite(value) || value < 0)) return showToast('Informe somente valores válidos e positivos.'); Object.assign(state.rates, values); persistRates(); render(); showToast('Valores padrão por uso atualizados com sucesso.'); }
 function saveVehicleRate() {
-  const fleet = $('vehicleRateFleet').value, plate = $('vehicleRatePlate').value, rawValue = clean($('vehicleRateValue').value).replace(',', '.'), value = Number(rawValue);
-  if (!fleet || !plate) return showToast('Escolha a categoria e a placa do veículo.');
+  const record = selectedUsage(), rawValue = clean($('vehicleRateValue').value), value = normalizedRate(rawValue, NaN);
+  if (!record) return showToast('Escolha a utilização específica que deseja alterar.');
   if (!rawValue || !Number.isFinite(value) || value < 0) return showToast('Informe um valor individual válido.');
-  state.rates[vehicleRateKey(fleet, plate)] = value; persistRates(); renderCosts(); loadVehicleRateValue();
-  showToast(`Valor individual de ${plate} salvo com sucesso.`);
+  state.rates[usageRateKey(record)] = value; persistRates(); renderCosts(); loadVehicleRateValue();
+  showToast(`Valor de ${record.plate} alterado somente para ${displayDate(record)}.`);
 }
 function removeVehicleRate() {
-  const fleet = $('vehicleRateFleet').value, plate = $('vehicleRatePlate').value;
-  if (!fleet || !plate || !hasVehicleRate(fleet, plate)) return showToast('Esta placa já está usando o valor padrão.');
-  delete state.rates[vehicleRateKey(fleet, plate)]; persistRates(); renderCosts(); loadVehicleRateValue();
-  showToast(`${plate} voltou a usar o valor padrão da categoria.`);
+  const record = selectedUsage();
+  if (!record || !hasUsageRate(record)) return showToast('Esta utilização já está usando o valor padrão.');
+  delete state.rates[usageRateKey(record)]; persistRates(); renderCosts(); loadVehicleRateValue();
+  showToast(`${record.plate} voltou ao valor padrão somente em ${displayDate(record)}.`);
 }
 function openDetail(kind, filter = '') {
   const absenceType = ['FOLGA','FÉRIAS','ATESTADO','FALTA'].includes(kind);
@@ -186,9 +206,9 @@ function openDetail(kind, filter = '') {
     if (kind === 'OVERNIGHT') records = sortedRecords().filter(isOvernight);
     if (filter) records = records.filter(r => r.plate === filter);
     const title = kind === 'all' ? 'Veículos-dia em rota' : kind === 'OVERNIGHT' ? 'Rotas com pernoite' : FLEETS[kind];
-    const total = records.reduce((sum, r) => sum + recordRate(r), 0);
+    const total = sumRecordCosts(records);
     $('indicatorTitle').textContent = `${title}${filter ? ` — ${filter}` : ''}`; $('indicatorSubtitle').textContent = `${records.length} utilização${records.length === 1 ? '' : 'ões'} que compõem este indicador`; $('indicatorTotal').textContent = money(total);
-    $('indicatorTable').innerHTML = records.map(r => `<tr><td>${escapeHtml(displayDate(r))}</td><td>${escapeHtml(FLEETS[r.fleet])}</td><td>${escapeHtml(r.plate)}</td><td>${escapeHtml(r.driver || '—')}</td><td>${escapeHtml(r.shipment || '—')}</td><td>${escapeHtml(r.city || '—')}</td><td>${money(recordRate(r))}</td></tr>`).join('') || '<tr><td colspan="7" class="no-results">Sem dados.</td></tr>';
+    $('indicatorTable').innerHTML = records.map(r => `<tr><td>${escapeHtml(displayDate(r))}</td><td>${escapeHtml(FLEETS[r.fleet])}</td><td>${escapeHtml(r.plate)}</td><td>${escapeHtml(r.driver || '—')}</td><td>${escapeHtml(r.shipment || '—')}</td><td>${escapeHtml(r.city || '—')}</td><td>${money(recordRate(r))}${hasUsageRate(r) ? '<small class="individual-rate-note">Individual</small>' : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="no-results">Sem dados.</td></tr>';
   }
   $('indicatorTableWrap').scrollTop = 0; $('indicatorTableWrap').scrollLeft = 0; $('backDashboard').focus?.({ preventScroll: true });
 }
@@ -219,7 +239,7 @@ $('chooseFiles').addEventListener('click', () => fileInput.click()); fileInput.a
 dropzone.addEventListener('click', e => { if (!e.target.closest('button')) fileInput.click(); }); dropzone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
 ['dragenter', 'dragover'].forEach(event => dropzone.addEventListener(event, e => { e.preventDefault(); dropzone.classList.add('dragging'); })); ['dragleave', 'drop'].forEach(event => dropzone.addEventListener(event, e => { e.preventDefault(); dropzone.classList.remove('dragging'); })); dropzone.addEventListener('drop', e => readFiles([...e.dataTransfer.files].filter(f => /\.(xlsx|xlsm|xlsb|xls|csv)$/i.test(f.name))));
 ['searchInput', 'dateFilter', 'fleetFilter', 'plateFilter'].forEach(id => $(id).addEventListener(id === 'searchInput' ? 'input' : 'change', renderTable)); ['employeeFilter', 'absenceFilter'].forEach(id => $(id).addEventListener('change', renderAbsenceTable)); $('clearData').addEventListener('click', clearAll); $('exportCsv').addEventListener('click', exportCsv);
-$('saveRate').addEventListener('click', saveRate); $('vehicleRateFleet').addEventListener('change', renderVehicleRateEditor); $('vehicleRatePlate').addEventListener('change', loadVehicleRateValue); $('saveVehicleRate').addEventListener('click', saveVehicleRate); $('removeVehicleRate').addEventListener('click', removeVehicleRate); document.querySelectorAll('[data-detail]').forEach(el => el.addEventListener('click', () => openDetail(el.dataset.detail))); $('backDashboard').addEventListener('click', closeDetail);
+$('saveRate').addEventListener('click', saveRate); $('vehicleRateFleet').addEventListener('change', renderVehicleRateEditor); $('vehicleRatePlate').addEventListener('change', renderVehicleRateUsages); $('vehicleRateUsage').addEventListener('change', loadVehicleRateValue); $('saveVehicleRate').addEventListener('click', saveVehicleRate); $('removeVehicleRate').addEventListener('click', removeVehicleRate); document.querySelectorAll('[data-detail]').forEach(el => el.addEventListener('click', () => openDetail(el.dataset.detail))); $('backDashboard').addEventListener('click', closeDetail);
 document.addEventListener('click', e => { const item = e.target.closest('.cost-result'); if (item) openDetail(item.dataset.detail); });
 document.addEventListener('click', e => { const item = e.target.closest('.ranking-action'); if (item) openDetail(item.dataset.rankingKind, item.dataset.rankingFilter); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('indicatorView').classList.contains('hidden')) closeDetail(); });
