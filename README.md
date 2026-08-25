@@ -27,7 +27,7 @@ Uma utilização é contabilizada quando há uma placa de veículo e também uma
 - Pernoites, uso diário por categoria e ranking de veículos
 - Tabelas detalhadas com filtros e exportação de relatório completo em CSV
 - Auditoria das abas processadas e de suas seções operacionais
-- Cadastro de valor por utilização para carros da casa, terceiros fixos e SPOT
+- Valores por utilização editáveis separadamente para carros da casa, terceiros fixos e SPOT
 - Cálculo automático: valor por uso × quantidade utilizada = gasto total
 - Indicadores clicáveis com uma aba interna contendo somente os registros daquele indicador
 - Rankings de funcionários com mais atestados, folgas e férias
