@@ -32,6 +32,9 @@
     <style>
       .financial-ranking-category{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:11px 0 7px}.financial-ranking-category small{color:#7c8b95;font-size:9px;font-weight:700;text-transform:uppercase}.financial-ranking-empty{padding:12px 0;color:#7c8b95;font-size:10px}
     </style>
+    <style>
+      .spot-result-panel{margin-bottom:13px;padding:17px;border:1px solid #d7e6ec;border-left:5px solid #92a5ae;border-radius:13px;background:#fff;box-shadow:0 4px 14px rgba(25,57,80,.035)}.spot-result-profit{border-left-color:#16a98c;background:linear-gradient(135deg,#fff,#f0fbf7)}.spot-result-loss{border-left-color:#c25458;background:linear-gradient(135deg,#fff,#fff5f5)}.spot-result-heading{display:flex;align-items:start;justify-content:space-between;gap:15px}.spot-result-heading .eyebrow{margin-bottom:5px}.spot-result-heading h3{margin:0;color:#0d2b45;font-size:16px}.spot-result-heading p:not(.eyebrow){margin:4px 0 0;color:#6b7b89;font-size:10px}.spot-result-badge{flex:0 0 auto;padding:7px 10px;border-radius:999px;background:#edf2f4;color:#657680;font-size:9px;font-weight:900}.spot-result-profit .spot-result-badge{background:#dff6ee;color:#10715c}.spot-result-loss .spot-result-badge{background:#fde3e5;color:#a53742}.spot-result-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:9px;margin-top:13px}.spot-result-grid>div{min-width:0;padding:11px;border:1px solid #e1eaee;border-radius:9px;background:rgba(255,255,255,.84)}.spot-result-grid span{display:block;color:#6b7b89;font-size:9px;font-weight:750;text-transform:uppercase}.spot-result-grid strong{display:block;margin-top:5px;color:#0d2b45;font-size:15px;overflow-wrap:anywhere}.spot-result-open{margin-top:12px}.bonus-ranking-heading{display:flex;align-items:start;justify-content:space-between;gap:10px}.bonus-ranking-heading>span{padding:5px 8px;border-radius:999px;background:#fff5dc;color:#906100;font-size:8px;font-weight:900}.bonus-ranking-heading p{margin-top:4px}@media(max-width:950px){.spot-result-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:560px){.spot-result-heading{display:block}.spot-result-badge{display:inline-block;margin-top:9px}.spot-result-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.spot-result-open{width:100%}}@media(max-width:390px){.spot-result-grid{grid-template-columns:1fr}}
+    </style>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   </head>
   <body>
@@ -165,6 +168,18 @@
             <div id="financialEmpty" class="financial-empty"><strong id="financialEmptyTitle">Importe a base de valores para cruzar os embarques</strong><p id="financialEmptyText">Depois de escolher a aba do mês, o sistema ligará custo, faturamento, rota, motorista e duração automaticamente.</p></div>
             <div id="financialContent" class="hidden">
               <div id="financialNotice" class="financial-notice"></div>
+              <article id="spotResultPanel" class="spot-result-panel spot-result-neutral">
+                <div class="spot-result-heading"><div><p class="eyebrow">CONTROLE DOS SPOTS</p><h3>Resultado financeiro dos SPOTs</h3><p>RS 4 em diante, Cart Smart 4 em diante e demais terceiros fora da lista fixa.</p></div><span id="spotResultBadge" class="spot-result-badge">SEM SPOT CRUZADO</span></div>
+                <div class="spot-result-grid">
+                  <div><span>Embarques SPOT</span><strong id="spotShipmentCount">0</strong></div>
+                  <div><span>Faturamento</span><strong id="spotRevenue">R$ 0,00</strong></div>
+                  <div><span>Custo dos SPOTs</span><strong id="spotCost">R$ 0,00</strong></div>
+                  <div><span id="spotProfitLabel">Lucro total</span><strong id="spotProfit">R$ 0,00</strong></div>
+                  <div><span>Margem</span><strong id="spotMargin">—</strong></div>
+                  <div><span>Embarques no prejuízo</span><strong id="spotLossCount">0</strong></div>
+                </div>
+                <button class="secondary-btn spot-result-open" type="button" data-financial-kind="spot">Ver custos e prejuízos dos SPOTs</button>
+              </article>
               <div class="financial-kpis">
                 <button class="financial-kpi" type="button" data-financial-kind="matched"><span>Embarques cruzados</span><strong id="financialMatched">0</strong><small id="financialMatchedSmall">de 0 embarques da operação</small></button>
                 <button class="financial-kpi" type="button" data-financial-kind="revenue"><span>Faturamento cruzado</span><strong id="financialRevenue">R$ 0,00</strong><small>somente embarques encontrados nas duas bases</small></button>
@@ -176,7 +191,7 @@
               <div class="financial-rank-grid">
                 <article class="card financial-card"><h3>Rotas com maior lucro</h3><p>Resultado acumulado por rota</p><ol id="routeProfitRanking" class="financial-ranking"></ol></article>
                 <article class="card financial-card"><h3>Rotas que mais gastaram</h3><p>Custo total e médio por rota</p><ol id="routeCostRanking" class="financial-ranking"></ol></article>
-                <article class="card financial-card"><h3>Motoristas com menor gasto médio</h3><p>Comparação separada entre carros da casa e terceiros fixos; SPOT não entra neste ranking</p><ol id="driverCostRanking" class="financial-ranking"></ol></article>
+                <article class="card financial-card bonus-ranking-card"><div class="bonus-ranking-heading"><div><h3>Top 3 para bonificação</h3><p>Critério: menor custo médio por embarque, separado entre casa e fixos</p></div><span>BONIFICAÇÃO</span></div><ol id="driverCostRanking" class="financial-ranking"></ol></article>
                 <article class="card financial-card"><h3>Viagens mais demoradas</h3><p>Lead time da rota ou diferença entre saída e retorno</p><ol id="durationRanking" class="financial-ranking"></ol></article>
               </div>
               <article class="card report-card financial-table-card">

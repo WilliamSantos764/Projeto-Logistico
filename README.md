@@ -31,6 +31,8 @@ O vínculo entre as planilhas é feito pelo número do embarque. Para evitar tot
 
 O app procura, dentro de cada aba, as seções **COOPERRITA / carros da casa**, **TERCEIROS FIXOS** (inclusive planilhas antigas com o título “TERCEIROS”) e **SPOT**. Ele localiza o cabeçalho mesmo quando muda de linha ou tem colunas extras. São identificados os campos de Placa, Motorista, Telefone, Embarque, Cidades/Rota e Pernoite.
 
+Na classificação dos veículos externos, somente **RS 1, RS 2, RS 3, Cart Smart 1, Cart Smart 2 e Cart Smart 3** são considerados terceiros fixos. RS 4 em diante, Cart Smart 4 em diante e os demais externos são classificados como SPOT, mesmo quando aparecem dentro de uma seção genérica de terceiros.
+
 Uma utilização é contabilizada quando há uma placa de veículo e também uma rota/cidade real ou um embarque. Linhas vazias e `CONTINUAÇÃO DE ESCALA` não entram como utilização. As seções `FOLGA`, `FÉRIAS`, `ATESTADO` e `FALTA` são lidas separadamente como disponibilidade da equipe.
 
 ## Relatórios disponíveis
@@ -54,7 +56,9 @@ Uma utilização é contabilizada quando há uma placa de veículo e também uma
 - Cruzamento automático entre a planilha operacional e a base financeira pelo número do embarque
 - Total de faturamento, custo da rota, lucro, margem e custo médio somente dos embarques encontrados nas duas bases
 - Lucro calculado como `TOTAL FATURAMENTO - CUSTO ROTA`
-- Rankings clicáveis das rotas mais lucrativas e de maior custo, além dos motoristas com menor custo médio separados entre carros da casa e terceiros fixos (sem misturar SPOT)
+- Resultado exclusivo dos SPOTs com faturamento, custo, lucro ou prejuízo, margem e quantidade de embarques negativos
+- Detalhamento clicável dos SPOTs, ordenando primeiro os embarques que deram maior prejuízo
+- Top 3 para bonificação separado entre carros da casa e terceiros fixos, usando como critério o menor custo médio por embarque
 - Ranking das viagens mais demoradas usando `LEAD TIME DA ROTA` ou, quando necessário, a diferença entre saída e retorno
 - Tabela completa com busca e filtros para embarques cruzados, sem custo e sem rota
 - Detalhamento financeiro em tela fixa, com cabeçalho visível e rolagem somente dentro dos dados

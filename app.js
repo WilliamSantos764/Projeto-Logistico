@@ -52,6 +52,15 @@ function sectionFromRow(row) {
   if (values.some(v => v === 'SPOT')) return 'SPOT';
   return '';
 }
+function externalFleetNumber(driver) {
+  const text = norm(driver).replace(/[^A-Z0-9]+/g, ' '), cartSmart = text.match(/\bCART\s*SMART\s*0*(\d+)\b/), rs = text.match(/\bRS\s*0*(\d+)\b/);
+  const match = cartSmart || rs; return match ? Number(match[1]) : null;
+}
+function resolveFleetCategory(fleet, driver) {
+  if (fleet === 'COOPERRITA') return fleet;
+  if (fleet !== 'TERCEIROS FIXOS' && fleet !== 'SPOT') return fleet;
+  const number = externalFleetNumber(driver); return Number.isInteger(number) && number >= 1 && number <= 3 ? 'TERCEIROS FIXOS' : 'SPOT';
+}
 function headerRow(rows, start) { for (let r = start + 1; r < Math.min(rows.length, start + 8); r++) { const values = rows[r].map(norm); if (values.some(v => v === 'PLACA' || v === 'PLACAS') && values.some(v => v.includes('MOTORISTA'))) return r; } return -1; }
 function isFleetHeader(row) { const values = row.map(norm); return values.some(v => /\bPLACAS?\b/.test(v)) && values.some(v => /MOTORISTA|\bMOT\.?\b/.test(v)); }
 function fleetBeforeHeader(rows, header) { for (let r = header - 1; r >= Math.max(0, header - 22); r--) { const fleet = sectionFromRow(rows[r]); if (fleet) return fleet; } return ''; }
@@ -67,9 +76,9 @@ function extractFleetSection(rows, source, sheet, fleet, start) {
     const row = rows[r]; if (rowSignalsNewBlock(row)) break;
     const plate = clean(row[cols.plate]), driver = clean(row[cols.driver]), shipment = clean(row[cols.shipment]), city = clean(row[cols.city]);
     const rowHasData = [plate, driver, shipment, city].some(hasValue); emptyStreak = rowHasData ? 0 : emptyStreak + 1; if (emptyStreak >= 4) break;
-    const record = { date: findSheetDate(rows, sheet), sheet, source, fleet, plate, driver, phone: clean(row[cols.phone]), shipment, city, overnight: cols.overnight >= 0 ? clean(row[cols.overnight]) : '' };
+    const record = { date: findSheetDate(rows, sheet), sheet, source, fleet: resolveFleetCategory(fleet, driver), plate, driver, phone: clean(row[cols.phone]), shipment, city, overnight: cols.overnight >= 0 ? clean(row[cols.overnight]) : '' };
     if (!resemblesPlate(plate) || isContinuation(record) || (!hasValue(shipment) && !hasValue(city))) continue;
-    record.id = `${source}|${sheet}|${fleet}|${r}|${plate}|${shipment}|${city}`; records.push(record);
+    record.id = `${source}|${sheet}|${record.fleet}|${r}|${plate}|${shipment}|${city}`; records.push(record);
   }
   return { records, foundHeader: true };
 }
@@ -79,9 +88,9 @@ function extractHeaderTable(rows, source, sheet, fleet, header) {
     const row = rows[r]; if (rowSignalsNewBlock(row) || isFleetHeader(row)) break;
     const plate = clean(row[cols.plate]), driver = clean(row[cols.driver]), shipment = clean(row[cols.shipment]), city = clean(row[cols.city]);
     const rowHasData = [plate, driver, shipment, city].some(hasValue); emptyStreak = rowHasData ? 0 : emptyStreak + 1; if (emptyStreak >= 5) break;
-    const record = { date: findSheetDate(rows, sheet), sheet, source, fleet, plate, driver, phone: clean(row[cols.phone]), shipment, city, overnight: cols.overnight >= 0 ? clean(row[cols.overnight]) : '' };
+    const record = { date: findSheetDate(rows, sheet), sheet, source, fleet: resolveFleetCategory(fleet, driver), plate, driver, phone: clean(row[cols.phone]), shipment, city, overnight: cols.overnight >= 0 ? clean(row[cols.overnight]) : '' };
     if (!resemblesPlate(plate) || isContinuation(record) || (!hasValue(shipment) && !hasValue(city))) continue;
-    record.id = `${source}|${sheet}|${fleet}|${r}|${plate}|${shipment}|${city}`; records.push(record);
+    record.id = `${source}|${sheet}|${record.fleet}|${r}|${plate}|${shipment}|${city}`; records.push(record);
   }
   return records;
 }
@@ -357,6 +366,15 @@ function driverFleetRankingRows(rows, fleet) {
   const ranking = groups.length ? groups.map((group, index) => `<li><button class="financial-ranking-action" data-financial-kind="driver" data-financial-filter="${escapeHtml(group.label)}" data-financial-fleet="${escapeHtml(fleet)}"><span class="ranking-position">${index + 1}</span><strong>${escapeHtml(group.label)}<small>${group.costCount} embarque${group.costCount === 1 ? '' : 's'} • total ${money(group.cost)}</small></strong><b>${money(group.averageCost)}<small>/ embarque</small></b></button></li>`).join('') : `<li class="financial-ranking-empty">Nenhum motorista de ${escapeHtml(FLEETS[fleet].toLowerCase())} com custo cruzado.</li>`;
   return heading + ranking;
 }
+function renderSpotFinancial(rows) {
+  const spots = rows.filter(row => row.fleet === 'SPOT'), resultRows = spots.filter(row => Number.isFinite(row.profit));
+  const revenue = finiteSum(spots, 'revenue'), cost = finiteSum(spots, 'cost'), profit = finiteSum(spots, 'profit'), margin = revenue ? profit / revenue : null, losses = resultRows.filter(row => row.profit < 0).length;
+  const panel = $('spotResultPanel'), badge = $('spotResultBadge'); panel.classList.remove('spot-result-profit','spot-result-loss','spot-result-neutral');
+  if (!spots.length || !resultRows.length) { panel.classList.add('spot-result-neutral'); badge.textContent = spots.length ? 'SEM RESULTADO' : 'SEM SPOT CRUZADO'; }
+  else if (profit < 0) { panel.classList.add('spot-result-loss'); badge.textContent = 'PREJUÍZO'; }
+  else { panel.classList.add('spot-result-profit'); badge.textContent = 'LUCRO'; }
+  $('spotShipmentCount').textContent = spots.length; $('spotRevenue').textContent = money(revenue); $('spotCost').textContent = money(cost); $('spotProfitLabel').textContent = profit < 0 ? 'Prejuízo total' : 'Lucro total'; $('spotProfit').textContent = money(profit); $('spotProfit').classList.toggle('negative-money', profit < 0); $('spotProfit').classList.toggle('positive-money', profit >= 0 && resultRows.length > 0); $('spotMargin').textContent = percent(margin); $('spotLossCount').textContent = losses;
+}
 function renderFinancialRankings(analysis) {
   const matched = analysis.matchedRows, routes = financialGroups(matched, 'route');
   const profitable = routes.filter(group => group.profitCount).sort((a,b) => b.profit - a.profit || b.margin - a.margin).slice(0, 5);
@@ -393,13 +411,14 @@ function renderCrossAnalysis() {
   else if (!analysis.routeUniqueCount) { notice.classList.add('financial-notice-warning'); notice.textContent = 'A planilha de rotas não contém números de embarque reconhecíveis para realizar o cruzamento.'; }
   else if (!matched.length) { notice.classList.add('financial-notice-error'); notice.textContent = `Nenhum dos ${analysis.routeUniqueCount} embarques da operação foi encontrado em ${clean(state.costBase.sheetName)}. Confira se as duas planilhas são do mesmo mês.${duplicateText}`; }
   else { const coverage = matched.length / analysis.routeUniqueCount; notice.classList.add(coverage >= .8 ? 'financial-notice-ok' : 'financial-notice-warning'); notice.textContent = `${matched.length} de ${analysis.routeUniqueCount} embarques da operação foram cruzados (${percent(coverage)}). ${analysis.routeOnlyRows.length} estão sem custo e ${analysis.costOnlyRows.length} registros da base financeira não aparecem nas rotas.${duplicateText}`; }
-  renderFinancialRankings(analysis); renderFinancialTable();
+  renderSpotFinancial(matched); renderFinancialRankings(analysis); renderFinancialTable();
 }
 function openFinancialDetail(kind = 'all', filter = '', fleet = '') {
   const analysis = state.crossAnalysis || buildCrossAnalysis(); if (!analysis) return showToast('Importe as duas planilhas antes de abrir a análise financeira.');
   let rows = [...analysis.allRows], title = 'Todos os embarques', subtitle = 'Conferência entre a operação e a base de valores';
   if (['matched','revenue','cost','profit','margin','duration'].includes(kind)) rows = [...analysis.matchedRows];
   if (kind === 'route-only') rows = [...analysis.routeOnlyRows]; if (kind === 'cost-only') rows = [...analysis.costOnlyRows];
+  if (kind === 'spot') { rows = analysis.matchedRows.filter(row => row.fleet === 'SPOT').sort((a,b) => (a.profit ?? Infinity) - (b.profit ?? Infinity) || (b.cost ?? -Infinity) - (a.cost ?? -Infinity)); title = 'Resultado financeiro dos SPOTs'; subtitle = 'Prejuízos aparecem primeiro; confira faturamento, custo e lucro de cada embarque'; }
   if (kind === 'route') { rows = analysis.matchedRows.filter(row => norm(row.route) === norm(filter)); title = `Rota — ${filter}`; subtitle = 'Embarques, custos, faturamento e duração desta rota'; }
   if (kind === 'driver') { rows = analysis.matchedRows.filter(row => norm(row.driver) === norm(filter) && (!fleet || row.fleet === fleet)); title = `${fleet ? `${FLEETS[fleet]} — ` : ''}${filter}`; subtitle = 'Embarques e resultados ligados a este motorista'; }
   if (kind === 'shipment') { rows = analysis.allRows.filter(row => row.shipment === clean(filter)); title = `Embarque ${filter}`; subtitle = 'Linha financeira e operação encontradas para este embarque'; }
@@ -410,8 +429,8 @@ function openFinancialDetail(kind = 'all', filter = '', fleet = '') {
   if (kind === 'duration') { title = 'Viagens mais demoradas'; rows = rows.filter(row => Number.isFinite(row.durationDays)).sort((a,b) => b.durationDays - a.durationDays); }
   if (kind === 'matched') title = 'Embarques localizados nas duas planilhas'; if (kind === 'route-only') { title = 'Embarques sem custo localizado'; subtitle = 'Presentes na operação, mas ausentes na aba financeira escolhida'; } if (kind === 'cost-only') { title = 'Custos sem rota localizada'; subtitle = 'Presentes na base financeira, mas ausentes na operação importada'; }
   $('dashboard').classList.add('hidden'); $('indicatorView').classList.add('hidden'); $('financialDetailView').classList.remove('hidden'); setDetailMode(true); $('financialDetailTitle').textContent = title; $('financialDetailSubtitle').textContent = subtitle;
-  const total = kind === 'cost' ? money(finiteSum(rows, 'cost')) : kind === 'revenue' ? money(finiteSum(rows, 'revenue')) : kind === 'profit' ? money(finiteSum(rows, 'profit')) : `${rows.length} embarque${rows.length === 1 ? '' : 's'}`;
-  $('financialDetailTotal').textContent = total; $('financialDetailTable').innerHTML = rows.length ? rows.map(row => financialTableRow(row, true)).join('') : '<tr><td colspan="12" class="no-results">Nenhum dado encontrado.</td></tr>'; $('financialDetailTableWrap').scrollTop = 0; $('financialDetailTableWrap').scrollLeft = 0; $('backFinancialDetail').focus?.({ preventScroll: true });
+  const total = kind === 'cost' ? money(finiteSum(rows, 'cost')) : kind === 'revenue' ? money(finiteSum(rows, 'revenue')) : kind === 'profit' || kind === 'spot' ? money(finiteSum(rows, 'profit')) : `${rows.length} embarque${rows.length === 1 ? '' : 's'}`;
+  const detailTotal = $('financialDetailTotal'); detailTotal.textContent = total; detailTotal.classList.remove('negative-money','positive-money'); if (kind === 'spot' && rows.length) detailTotal.classList.add(finiteSum(rows, 'profit') < 0 ? 'negative-money' : 'positive-money'); $('financialDetailTable').innerHTML = rows.length ? rows.map(row => financialTableRow(row, true)).join('') : '<tr><td colspan="12" class="no-results">Nenhum dado encontrado.</td></tr>'; $('financialDetailTableWrap').scrollTop = 0; $('financialDetailTableWrap').scrollLeft = 0; $('backFinancialDetail').focus?.({ preventScroll: true });
 }
 function closeFinancialDetail() { $('financialDetailView').classList.add('hidden'); if (state.records.length) $('dashboard').classList.remove('hidden'); setDetailMode(false); }
 function saveRate() { const values = { COOPERRITA: normalizedRate($('rateHouse').value, NaN), 'TERCEIROS FIXOS': normalizedRate($('rateFixed').value, NaN), SPOT: normalizedRate($('rateSpot').value, NaN) }; if (Object.values(values).some(value => !Number.isFinite(value) || value < 0)) return showToast('Informe somente valores válidos e positivos.'); Object.assign(state.rates, values); persistRates(); render(); showToast('Valores padrão por uso atualizados com sucesso.'); }
