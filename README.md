@@ -25,6 +25,8 @@ As abas selecionadas são consolidadas em uma única base. Uma nova escolha subs
 
 No arquivo de referência foram reconhecidas as bases de janeiro a julho. O detector procura os cabeçalhos `EMBARQUE`, `DATA SAIDA` e `TOTAL FATURAMENTO`, separando as bases mensais das abas auxiliares, painéis e bases de despesas. Depois, localiza dinamicamente `CUSTO ROTA`, `ROTA`, `RETORNO ROTA`, `LEAD TIME DA ROTA`, `KM ROTA` e os demais campos, mesmo quando mudam de coluna.
 
+Nas abas mensais atuais da planilha **Custo - Copia**, a data exata de saída é lida da coluna B e a data de retorno da coluna R. O sistema continua conferindo os nomes dos cabeçalhos para aceitar abas antigas em que essas colunas estejam deslocadas. O mês e o ano exibidos vêm da data de saída da própria base financeira, e a duração é calculada prioritariamente pela diferença entre saída e retorno; `LEAD TIME DA ROTA` é usado somente quando uma dessas datas não está disponível.
+
 O vínculo entre as planilhas é feito pelo número do embarque. Para evitar totais incorretos, um embarque repetido na mesma aba ou entre várias abas financeiras é considerado apenas uma vez e fica sinalizado. O sistema preserva o registro mais completo. A conferência também separa embarques **cruzados**, **sem custo** e **sem rota**. Se as planilhas forem de meses diferentes, o painel informa que nenhuma correspondência foi encontrada em vez de misturar os valores.
 
 ## O que o sistema identifica
@@ -60,13 +62,17 @@ Uma utilização é contabilizada quando há uma placa de veículo e também uma
 - Resultado exclusivo dos SPOTs com faturamento, custo, lucro ou prejuízo, margem e quantidade de embarques negativos
 - Detalhamento clicável dos SPOTs, ordenando primeiro os embarques que deram maior prejuízo
 - Top 3 para bonificação separado entre carros da casa e terceiros fixos, usando como critério o menor custo médio por embarque
+- Top 3 geral de motoristas da casa e terceiros fixos em rotas próximas (até 150 km), combinando menor custo por km com menor tempo entre a saída e o retorno
+- Top 3 geral de motoristas da casa e terceiros fixos em rotas longas (acima de 150 km), usando a mesma comparação de custo e velocidade de retorno
+- Selo de qualidade por motorista: `Padrão consistente`, `Em observação`, `Fora do padrão` ou `Amostra inicial`, calculado pela proporção de viagens dentro das referências de custo por km e duração do próprio período
+- Rankings de qualidade clicáveis, com as datas exatas de saída e retorno e somente as viagens que formaram a avaliação
 - Ranking clicável de motoristas com menor desempenho, somando faltas, atestados, rotas de até 150 km que passaram de um dia, custo por km acima de 25% da mediana da mesma frota e embarques com prejuízo
 - Pontuação visível e auditável: falta `+5`, atestado `+3`, rota curta demorada `+3`, custo por km elevado `+2` e prejuízo `+2`
 - Tela fixa com todas as ocorrências que formaram a pontuação; o indicador exige revisão humana antes de qualquer decisão
-- Ranking das viagens mais demoradas usando `LEAD TIME DA ROTA` ou, quando necessário, a diferença entre saída e retorno
+- Ranking das viagens mais demoradas usando prioritariamente a diferença entre a data de saída e a data de retorno e, quando necessário, `LEAD TIME DA ROTA`
 - Tabela completa com busca e filtros para embarques cruzados, sem custo e sem rota
 - Detalhamento financeiro em tela fixa, com cabeçalho visível e rolagem somente dentro dos dados
-- Exportação dos dados financeiros cruzados junto do relatório CSV completo
+- Exportação dos dados financeiros cruzados junto do relatório CSV completo, com saída e retorno em colunas separadas
 
 ## Publicar no GitHub Pages
 

@@ -34,8 +34,8 @@ function roundedMoney(value) { return Number.isFinite(value) ? Math.round((value
 function isoDateValue(value) {
   if (value instanceof Date && !Number.isNaN(value.getTime())) return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2,'0')}-${String(value.getDate()).padStart(2,'0')}`;
   if (typeof value === 'number' && Number.isFinite(value) && value > 20000 && value < 80000) { const date = new Date(Date.UTC(1899, 11, 30) + Math.round(value) * 86400000); return date.toISOString().slice(0, 10); }
-  const fromBrazilian = dateKey(value); if (fromBrazilian) return fromBrazilian;
-  const iso = clean(value).match(/^(\d{4})[-/]([01]?\d)[-/]([0-3]?\d)/); return iso ? `${iso[1]}-${iso[2].padStart(2,'0')}-${iso[3].padStart(2,'0')}` : '';
+  const iso = clean(value).match(/^(\d{4})[-/]([01]?\d)[-/]([0-3]?\d)/); if (iso) return `${iso[1]}-${iso[2].padStart(2,'0')}-${iso[3].padStart(2,'0')}`;
+  return dateKey(value);
 }
 function displayIsoDate(value) { const iso = isoDateValue(value); return iso ? iso.split('-').reverse().join('/') : '—'; }
 function dateDistance(first, second) { if (!first || !second) return Number.MAX_SAFE_INTEGER; return Math.abs(new Date(`${first}T12:00:00Z`) - new Date(`${second}T12:00:00Z`)) / 86400000; }
@@ -162,11 +162,12 @@ function costMonthLabel(sheetName) {
 function costSheetOptionLabel(sheetName) { const month = costMonthLabel(sheetName); return month ? `${month} — ${clean(sheetName)}` : clean(sheetName); }
 function costColumnMap(headers) {
   const values = headers.map(norm);
-  const find = (exact, includes = []) => { for (const term of exact) { const index = values.findIndex(value => value === term); if (index >= 0) return index; } return values.findIndex(value => includes.some(term => value.includes(term))); };
+  const find = (exact, includes = []) => { for (const term of exact) { const index = values.findIndex(value => value === term); if (index >= 0) return index; } return includes.length ? values.findIndex(value => includes.every(term => value.includes(term))) : -1; };
+  const detectedDeparture = find(['DATA SAIDA', 'DATA DE SAIDA'], ['DATA', 'SAIDA']), detectedReturn = find(['RETORNO ROTA', 'RETORNO DA ROTA'], ['RETORNO', 'ROTA']);
   return {
-    shipment: find(['EMBARQUE'], ['EMBARQUE']), departure: find(['DATA SAIDA', 'DATA DE SAIDA'], ['DATA', 'SAIDA']), plate: find(['PLACA'], ['PLACA']), carrier: find(['TRANSPORTADORA'], ['TRANSPORTADORA']),
+    shipment: find(['EMBARQUE'], ['EMBARQUE']), departure: detectedDeparture >= 0 ? detectedDeparture : 1, plate: find(['PLACA'], ['PLACA']), carrier: find(['TRANSPORTADORA'], ['TRANSPORTADORA']),
     profile: find(['PERFIL'], ['PERFIL']), capacity: find(['CAPACIDADE'], ['CAPACIDADE']), route: find(['ROTA'], ['ROTA']), seller: find(['VENDEDOR'], ['VENDEDOR']), totalTons: find(['TOTAL TONS', 'TOTAL TON'], ['TOTAL', 'TON']),
-    occupation: find(['OCUPACAO'], ['OCUPACAO']), revenue: find(['TOTAL FATURAMENTO'], ['TOTAL', 'FATURAMENTO']), returnDate: find(['RETORNO ROTA', 'RETORNO DA ROTA'], ['RETORNO', 'ROTA']),
+    occupation: find(['OCUPACAO'], ['OCUPACAO']), revenue: find(['TOTAL FATURAMENTO'], ['TOTAL', 'FATURAMENTO']), returnDate: detectedReturn >= 0 ? detectedReturn : 17,
     leadTime: find(['LEAD TIME DA ROTA', 'LEAD TIME ROTA'], ['LEAD TIME', 'ROTA']), km: find(['KM ROTA', 'KM DA ROTA'], ['KM', 'ROTA']), cost: find(['CUSTO ROTA', 'CUSTO DA ROTA'], ['CUSTO', 'ROTA']),
     costPerTon: find(['R$/TON', 'R$ / TON'], ['R$/TON']), costPerKg: find(['R$/KG', 'R$ / KG'], ['R$/KG'])
   };
@@ -182,14 +183,14 @@ function extractCostRecords(rows, headerIndex, headers, sourceSheet = '') {
     const allocation = shipments.length;
     const rawRevenue = parseLocaleNumber(rowValue(row, columns.revenue)), rawCost = parseLocaleNumber(rowValue(row, columns.cost));
     const departureDate = isoDateValue(rowValue(row, columns.departure)), returnDate = isoDateValue(rowValue(row, columns.returnDate));
-    const leadTime = parseLocaleNumber(rowValue(row, columns.leadTime));
+    const leadTime = parseLocaleNumber(rowValue(row, columns.leadTime)), dateDuration = daysBetween(departureDate, returnDate);
     const base = {
       sourceSheet: clean(sourceSheet), sourceRow: headerIndex + offset + 2, sourceShipment: clean(rowValue(row, columns.shipment)), departureDate, returnDate,
       plate: clean(rowValue(row, columns.plate)), carrier: clean(rowValue(row, columns.carrier)), profile: clean(rowValue(row, columns.profile)), capacity: clean(rowValue(row, columns.capacity)),
       route: clean(rowValue(row, columns.route)), seller: clean(rowValue(row, columns.seller)), totalTons: parseLocaleNumber(rowValue(row, columns.totalTons)), occupation: parseLocaleNumber(rowValue(row, columns.occupation)),
       revenue: rawRevenue === null ? null : roundedMoney(rawRevenue / allocation), cost: rawCost === null ? null : roundedMoney(rawCost / allocation), km: parseLocaleNumber(rowValue(row, columns.km)),
       costPerTon: parseLocaleNumber(rowValue(row, columns.costPerTon)), costPerKg: parseLocaleNumber(rowValue(row, columns.costPerKg)), sharedShipments: allocation,
-      durationDays: leadTime !== null && leadTime >= 0 ? Math.round(leadTime * 10) / 10 : daysBetween(departureDate, returnDate)
+      durationDays: dateDuration !== null ? dateDuration : (leadTime !== null && leadTime >= 0 ? Math.round(leadTime * 10) / 10 : null), durationSource: dateDuration !== null ? 'dates' : (leadTime !== null && leadTime >= 0 ? 'lead-time' : '')
     };
     shipments.forEach(shipment => { const record = { ...base, shipment }; if (!candidates.has(shipment)) candidates.set(shipment, []); candidates.get(shipment).push(record); });
   });
@@ -221,7 +222,7 @@ function buildCrossAnalysis() {
   const costRecords = state.costBase.costRecords || [], costMap = new Map(costRecords.map(record => [record.shipment, record])), matchedRows = [], costOnlyRows = [];
   costRecords.forEach(costRecord => {
     const candidates = routeIndex.get(costRecord.shipment) || [], routeRecord = bestRouteMatch(costRecord, candidates), profit = financialProfit(costRecord.revenue, costRecord.cost);
-    const common = { shipment: costRecord.shipment, costDate: costRecord.departureDate, routeDate: routeRecord?.date || '', date: routeRecord?.date || costRecord.departureDate, fleet: routeRecord?.fleet || '', plate: routeRecord?.plate || costRecord.plate, driver: routeRecord?.driver || '', route: costRecord.route || routeRecord?.city || '', dailyRoute: routeRecord?.city || '', carrier: costRecord.carrier, profile: costRecord.profile, capacity: costRecord.capacity, seller: costRecord.seller, totalTons: costRecord.totalTons, occupation: costRecord.occupation, revenue: costRecord.revenue, cost: costRecord.cost, profit, margin: financialMargin(profit, costRecord.revenue), km: costRecord.km, costPerTon: costRecord.costPerTon, costPerKg: costRecord.costPerKg, departureDate: costRecord.departureDate, returnDate: costRecord.returnDate, durationDays: costRecord.durationDays, costSourceSheet: costRecord.sourceSheet || '', costSourceRow: costRecord.sourceRow, duplicateRows: costRecord.duplicateRows, sharedShipments: costRecord.sharedShipments, routeMatches: candidates.length, routeSource: routeRecord?.source || '', routeSheet: routeRecord?.sheet || '' };
+    const common = { shipment: costRecord.shipment, costDate: costRecord.departureDate, routeDate: routeRecord?.date || '', date: costRecord.departureDate || routeRecord?.date || '', fleet: routeRecord?.fleet || '', plate: routeRecord?.plate || costRecord.plate, driver: routeRecord?.driver || '', route: costRecord.route || routeRecord?.city || '', dailyRoute: routeRecord?.city || '', carrier: costRecord.carrier, profile: costRecord.profile, capacity: costRecord.capacity, seller: costRecord.seller, totalTons: costRecord.totalTons, occupation: costRecord.occupation, revenue: costRecord.revenue, cost: costRecord.cost, profit, margin: financialMargin(profit, costRecord.revenue), km: costRecord.km, costPerTon: costRecord.costPerTon, costPerKg: costRecord.costPerKg, departureDate: costRecord.departureDate, returnDate: costRecord.returnDate, durationDays: costRecord.durationDays, durationSource: costRecord.durationSource || '', costSourceSheet: costRecord.sourceSheet || '', costSourceRow: costRecord.sourceRow, duplicateRows: costRecord.duplicateRows, sharedShipments: costRecord.sharedShipments, routeMatches: candidates.length, routeSource: routeRecord?.source || '', routeSheet: routeRecord?.sheet || '' };
     if (routeRecord) matchedRows.push({ ...common, status: 'matched' }); else costOnlyRows.push({ ...common, status: 'cost-only' });
   });
   const routeOnlyRows = [];
@@ -229,7 +230,7 @@ function buildCrossAnalysis() {
     if (costMap.has(shipment)) return; const routeRecord = [...candidates].sort((a,b) => String(a.date).localeCompare(String(b.date)) || a.id.localeCompare(b.id))[0];
     routeOnlyRows.push({ shipment, date: routeRecord.date, routeDate: routeRecord.date, costDate: '', fleet: routeRecord.fleet, plate: routeRecord.plate, driver: routeRecord.driver, route: routeRecord.city, dailyRoute: routeRecord.city, carrier: '', profile: '', capacity: '', seller: '', totalTons: null, occupation: null, revenue: null, cost: null, profit: null, margin: null, km: null, costPerTon: null, costPerKg: null, departureDate: '', returnDate: '', durationDays: null, routeMatches: candidates.length, routeSource: routeRecord.source, routeSheet: routeRecord.sheet, status: 'route-only' });
   });
-  const allRows = [...matchedRows, ...routeOnlyRows, ...costOnlyRows].sort((a,b) => String(a.date).localeCompare(String(b.date)) || Number(a.shipment) - Number(b.shipment));
+  const allRows = [...matchedRows, ...routeOnlyRows, ...costOnlyRows].sort((a,b) => String(a.departureDate || a.date).localeCompare(String(b.departureDate || b.date)) || Number(a.shipment) - Number(b.shipment));
   state.crossAnalysis = { matchedRows, routeOnlyRows, costOnlyRows, allRows, routeUniqueCount: routeIndex.size, costUniqueCount: costRecords.length, duplicateCosts: state.costBase.duplicates || [], columns: state.costBase.columns || {} };
   return state.crossAnalysis;
 }
@@ -443,6 +444,33 @@ function driverFleetRankingRows(rows, fleet) {
   const ranking = groups.length ? groups.map((group, index) => `<li><button class="financial-ranking-action" data-financial-kind="driver" data-financial-filter="${escapeHtml(group.label)}" data-financial-fleet="${escapeHtml(fleet)}"><span class="ranking-position">${index + 1}</span><strong>${escapeHtml(group.label)}<small>${group.costCount} embarque${group.costCount === 1 ? '' : 's'} • total ${money(group.cost)}</small></strong><b>${money(group.averageCost)}<small>/ embarque</small></b></button></li>`).join('') : `<li class="financial-ranking-empty">Nenhum motorista de ${escapeHtml(FLEETS[fleet].toLowerCase())} com custo cruzado.</li>`;
   return heading + ranking;
 }
+function routeQualityCategory(row) { return Number.isFinite(row.km) && row.km > 0 ? (row.km <= PERFORMANCE_NEAR_KM ? 'near' : 'far') : ''; }
+function routeQualityStatus(group) {
+  if (group.trips < 2) return { label: 'Amostra inicial', className: 'quality-sample' };
+  if (group.qualityRate >= .7) return { label: 'Padrão consistente', className: 'quality-good' };
+  if (group.qualityRate >= .5) return { label: 'Em observação', className: 'quality-watch' };
+  return { label: 'Fora do padrão', className: 'quality-bad' };
+}
+function buildRouteQualityAnalysis(rows, category) {
+  const eligible = rows.filter(row => clean(row.driver) && ['COOPERRITA', 'TERCEIROS FIXOS'].includes(row.fleet) && routeQualityCategory(row) === category && Number.isFinite(row.cost) && Number.isFinite(row.km) && row.km > 0 && Number.isFinite(row.durationDays) && isoDateValue(row.departureDate) && isoDateValue(row.returnDate));
+  const costPerKmMedian = median(eligible.map(row => row.cost / row.km)), durationMedian = median(eligible.map(row => row.durationDays)), groups = new Map();
+  eligible.forEach(row => {
+    const key = driverRouteKey(row.driver); if (!key) return;
+    if (!groups.has(key)) groups.set(key, { key, name: clean(row.driver), fleets: new Set(), rows: [], costPerKmTotal: 0, durationTotal: 0, compliantTrips: 0 });
+    const group = groups.get(key), costPerKm = row.cost / row.km, complies = Number.isFinite(costPerKmMedian) && Number.isFinite(durationMedian) && costPerKm <= costPerKmMedian && row.durationDays <= durationMedian;
+    group.fleets.add(row.fleet); group.rows.push(row); group.costPerKmTotal += costPerKm; group.durationTotal += row.durationDays; if (complies) group.compliantTrips++;
+  });
+  const drivers = [...groups.values()].map(group => {
+    const trips = group.rows.length, qualityRate = trips ? group.compliantTrips / trips : 0, averageCostPerKm = trips ? roundedMoney(group.costPerKmTotal / trips) : null, averageDuration = trips ? Math.round(group.durationTotal / trips * 10) / 10 : null;
+    const result = { ...group, fleets: [...group.fleets], trips, qualityRate, averageCostPerKm, averageDuration, status: null }; result.status = routeQualityStatus(result); return result;
+  }).sort((a,b) => Number(b.trips >= 2) - Number(a.trips >= 2) || b.qualityRate - a.qualityRate || b.trips - a.trips || a.averageCostPerKm - b.averageCostPerKm || a.averageDuration - b.averageDuration || a.name.localeCompare(b.name, 'pt-BR'));
+  return { category, eligible, drivers, costPerKmMedian, durationMedian };
+}
+function renderRouteQualityRanking(rows, category, rankingId, benchmarkId) {
+  const analysis = buildRouteQualityAnalysis(rows, category), top = analysis.drivers.slice(0, 3), distanceLabel = category === 'near' ? `até ${PERFORMANCE_NEAR_KM} km` : `acima de ${PERFORMANCE_NEAR_KM} km`;
+  $(benchmarkId).textContent = analysis.eligible.length ? `Referência do período (${distanceLabel}): até ${money(analysis.costPerKmMedian)}/km e ${durationLabel(analysis.durationMedian)}.` : `Sem viagens de ${distanceLabel} com custo, km, saída e retorno completos.`;
+  $(rankingId).innerHTML = top.length ? top.map((group, index) => `<li><button class="financial-ranking-action quality-ranking-action" data-financial-kind="quality-driver" data-financial-filter="${escapeHtml(group.key)}" data-financial-category="${category}"><span class="ranking-position">${index + 1}</span><strong>${escapeHtml(group.name)}<small>${group.trips} ${group.trips === 1 ? 'viagem' : 'viagens'} • ${money(group.averageCostPerKm)}/km • ${durationLabel(group.averageDuration)}</small></strong><b>${percent(group.qualityRate)}<small class="quality-badge ${group.status.className}">${escapeHtml(group.status.label)}</small></b></button></li>`).join('') : emptyFinancialRanking(`Nenhum motorista com dados completos em rotas de ${distanceLabel}.`);
+}
 function renderSpotFinancial(rows) {
   const spots = rows.filter(row => row.fleet === 'SPOT'), resultRows = spots.filter(row => Number.isFinite(row.profit));
   const revenue = finiteSum(spots, 'revenue'), cost = finiteSum(spots, 'cost'), profit = finiteSum(spots, 'profit'), margin = revenue ? profit / revenue : null, losses = resultRows.filter(row => row.profit < 0).length;
@@ -459,14 +487,15 @@ function renderFinancialRankings(analysis) {
   const costly = routes.filter(group => group.costCount).sort((a,b) => b.cost - a.cost).slice(0, 5);
   $('routeCostRanking').innerHTML = costly.length ? costly.map((group, index) => `<li><button class="financial-ranking-action" data-financial-kind="route" data-financial-filter="${escapeHtml(group.label)}"><span class="ranking-position">${index + 1}</span><strong title="${escapeHtml(group.label)}">${escapeHtml(group.label)}<small>${group.shipments} embarque${group.shipments === 1 ? '' : 's'} • média ${money(group.averageCost)}</small></strong><b>${money(group.cost)}</b></button></li>`).join('') : emptyFinancialRanking('Sem custos de rota cruzados.');
   $('driverCostRanking').innerHTML = driverFleetRankingRows(matched, 'COOPERRITA') + driverFleetRankingRows(matched, 'TERCEIROS FIXOS');
+  renderRouteQualityRanking(matched, 'near', 'nearDriverQualityRanking', 'nearQualityBenchmark'); renderRouteQualityRanking(matched, 'far', 'farDriverQualityRanking', 'farQualityBenchmark');
   const longest = matched.filter(row => Number.isFinite(row.durationDays)).sort((a,b) => b.durationDays - a.durationDays || (b.cost ?? 0) - (a.cost ?? 0)).slice(0, 5);
   $('durationRanking').innerHTML = longest.length ? longest.map((row, index) => `<li><button class="financial-ranking-action" data-financial-kind="shipment" data-financial-filter="${escapeHtml(row.shipment)}"><span class="ranking-position">${index + 1}</span><strong>${escapeHtml(row.driver || 'Motorista não informado')}<small title="${escapeHtml(row.route)}">Emb. ${escapeHtml(row.shipment)} • ${escapeHtml(row.route || 'Rota não informada')}</small></strong><b>${durationLabel(row.durationDays)}</b></button></li>`).join('') : emptyFinancialRanking('As bases escolhidas não possuem lead time ou retorno calculável.');
 }
 function financialTableRow(row, detailed = false) {
-  const fleet = row.fleet ? FLEETS[row.fleet] || row.fleet : row.carrier || '—', profitClass = Number.isFinite(row.profit) ? (row.profit < 0 ? 'negative-money' : 'positive-money') : '';
+  const fleet = row.fleet ? FLEETS[row.fleet] || row.fleet : row.carrier || '—', profitClass = Number.isFinite(row.profit) ? (row.profit < 0 ? 'negative-money' : 'positive-money') : '', departure = displayIsoDate(row.departureDate || row.costDate || row.date), returned = displayIsoDate(row.returnDate);
   const common = `<td><button class="shipment-link" data-financial-kind="shipment" data-financial-filter="${escapeHtml(row.shipment)}">${escapeHtml(row.shipment)}</button>${row.duplicateRows > 1 ? '<small class="duplicate-note">Duplicado na base</small>' : ''}</td><td>${escapeHtml(row.driver || '—')}</td><td class="route-cell" title="${escapeHtml(row.route || '')}">${escapeHtml(row.route || '—')}</td>`;
-  if (detailed) return `<tr><td>${escapeHtml(displayIsoDate(row.date || row.costDate))}</td>${common}<td>${escapeHtml(fleet)}</td><td>${escapeHtml(row.plate || '—')}</td><td>${moneyOrDash(row.revenue)}</td><td>${moneyOrDash(row.cost)}</td><td class="${profitClass}">${moneyOrDash(row.profit)}</td><td>${numberPt(row.km, 1)}</td><td>${durationLabel(row.durationDays)}</td><td><span class="financial-status ${financialStatusClass(row.status)}">${financialStatusLabel(row.status)}</span></td></tr>`;
-  return `<tr><td>${escapeHtml(displayIsoDate(row.date || row.costDate))}</td>${common}<td>${escapeHtml(fleet)}</td><td>${moneyOrDash(row.revenue)}</td><td>${moneyOrDash(row.cost)}</td><td class="${profitClass}">${moneyOrDash(row.profit)}</td><td>${durationLabel(row.durationDays)}</td><td><span class="financial-status ${financialStatusClass(row.status)}">${financialStatusLabel(row.status)}</span></td></tr>`;
+  if (detailed) return `<tr><td>${escapeHtml(departure)}</td><td>${escapeHtml(returned)}</td>${common}<td>${escapeHtml(fleet)}</td><td>${escapeHtml(row.plate || '—')}</td><td>${moneyOrDash(row.revenue)}</td><td>${moneyOrDash(row.cost)}</td><td class="${profitClass}">${moneyOrDash(row.profit)}</td><td>${numberPt(row.km, 1)}</td><td>${durationLabel(row.durationDays)}</td><td><span class="financial-status ${financialStatusClass(row.status)}">${financialStatusLabel(row.status)}</span></td></tr>`;
+  return `<tr><td>${escapeHtml(departure)}</td>${common}<td>${escapeHtml(fleet)}</td><td>${moneyOrDash(row.revenue)}</td><td>${moneyOrDash(row.cost)}</td><td class="${profitClass}">${moneyOrDash(row.profit)}</td><td>${durationLabel(row.durationDays)}</td><td><span class="financial-status ${financialStatusClass(row.status)}">${financialStatusLabel(row.status)}</span></td></tr>`;
 }
 function renderFinancialTable() {
   const analysis = state.crossAnalysis; if (!analysis) return;
@@ -490,7 +519,7 @@ function renderCrossAnalysis() {
   else { const coverage = matched.length / analysis.routeUniqueCount; notice.classList.add(coverage >= .8 && !state.costBase.missingCostSheets?.length ? 'financial-notice-ok' : 'financial-notice-warning'); notice.textContent = `${matched.length} de ${analysis.routeUniqueCount} embarques da operação foram cruzados (${percent(coverage)}). ${analysis.routeOnlyRows.length} estão sem custo e ${analysis.costOnlyRows.length} registros da base financeira não aparecem nas rotas.${duplicateText}${missingCostText}`; }
   renderSpotFinancial(matched); renderFinancialRankings(analysis); renderFinancialTable();
 }
-function openFinancialDetail(kind = 'all', filter = '', fleet = '') {
+function openFinancialDetail(kind = 'all', filter = '', fleet = '', category = '') {
   const analysis = state.crossAnalysis || buildCrossAnalysis(); if (!analysis) return showToast('Importe as duas planilhas antes de abrir a análise financeira.');
   let rows = [...analysis.allRows], title = 'Todos os embarques', subtitle = 'Conferência entre a operação e a base de valores';
   if (['matched','revenue','cost','profit','margin','duration'].includes(kind)) rows = [...analysis.matchedRows];
@@ -498,16 +527,17 @@ function openFinancialDetail(kind = 'all', filter = '', fleet = '') {
   if (kind === 'spot') { rows = analysis.matchedRows.filter(row => row.fleet === 'SPOT').sort((a,b) => (a.profit ?? Infinity) - (b.profit ?? Infinity) || (b.cost ?? -Infinity) - (a.cost ?? -Infinity)); title = 'Resultado financeiro dos SPOTs'; subtitle = 'Prejuízos aparecem primeiro; confira faturamento, custo e lucro de cada embarque'; }
   if (kind === 'route') { rows = analysis.matchedRows.filter(row => norm(row.route) === norm(filter)); title = `Rota — ${filter}`; subtitle = 'Embarques, custos, faturamento e duração desta rota'; }
   if (kind === 'driver') { rows = analysis.matchedRows.filter(row => norm(row.driver) === norm(filter) && (!fleet || row.fleet === fleet)); title = `${fleet ? `${FLEETS[fleet]} — ` : ''}${filter}`; subtitle = 'Embarques e resultados ligados a este motorista'; }
+  if (kind === 'quality-driver') { const quality = buildRouteQualityAnalysis(analysis.matchedRows, category), group = quality.drivers.find(item => item.key === filter); rows = group ? [...group.rows].sort((a,b) => String(a.departureDate).localeCompare(String(b.departureDate))) : []; title = `${category === 'near' ? 'Rotas próximas' : 'Rotas longas'} — ${group?.name || filter}`; subtitle = group ? `${group.status.label}: ${percent(group.qualityRate)} das viagens dentro da referência de ${money(quality.costPerKmMedian)}/km e ${durationLabel(quality.durationMedian)}. Saída e retorno vêm da base de valores.` : 'Não foi possível localizar as viagens deste motorista.'; }
   if (kind === 'shipment') { rows = analysis.allRows.filter(row => row.shipment === clean(filter)); title = `Embarque ${filter}`; subtitle = 'Linha financeira e operação encontradas para este embarque'; }
   if (kind === 'revenue') { title = 'Faturamento dos embarques cruzados'; rows.sort((a,b) => (b.revenue ?? -Infinity) - (a.revenue ?? -Infinity)); }
   if (kind === 'cost') { title = 'Custo das rotas cruzadas'; rows.sort((a,b) => (b.cost ?? -Infinity) - (a.cost ?? -Infinity)); }
   if (kind === 'profit') { title = 'Lucro por embarque'; rows.sort((a,b) => (b.profit ?? -Infinity) - (a.profit ?? -Infinity)); }
   if (kind === 'margin') { title = 'Margem dos embarques cruzados'; rows.sort((a,b) => (b.margin ?? -Infinity) - (a.margin ?? -Infinity)); }
-  if (kind === 'duration') { title = 'Viagens mais demoradas'; rows = rows.filter(row => Number.isFinite(row.durationDays)).sort((a,b) => b.durationDays - a.durationDays); }
+  if (kind === 'duration') { title = 'Viagens mais demoradas'; subtitle = 'Tempo entre a data de saída e a data de retorno; lead time somente quando uma das datas não existe'; rows = rows.filter(row => Number.isFinite(row.durationDays)).sort((a,b) => b.durationDays - a.durationDays); }
   if (kind === 'matched') title = 'Embarques localizados nas duas planilhas'; if (kind === 'route-only') { title = 'Embarques sem custo localizado'; subtitle = 'Presentes na operação, mas ausentes nas abas financeiras selecionadas'; } if (kind === 'cost-only') { title = 'Custos sem rota localizada'; subtitle = 'Presentes na base financeira, mas ausentes na operação importada'; }
   $('dashboard').classList.add('hidden'); $('indicatorView').classList.add('hidden'); $('financialDetailView').classList.remove('hidden'); setDetailMode(true); $('financialDetailTitle').textContent = title; $('financialDetailSubtitle').textContent = subtitle;
   const total = kind === 'cost' ? money(finiteSum(rows, 'cost')) : kind === 'revenue' ? money(finiteSum(rows, 'revenue')) : kind === 'profit' || kind === 'spot' ? money(finiteSum(rows, 'profit')) : `${rows.length} embarque${rows.length === 1 ? '' : 's'}`;
-  const detailTotal = $('financialDetailTotal'); detailTotal.textContent = total; detailTotal.classList.remove('negative-money','positive-money'); if (kind === 'spot' && rows.length) detailTotal.classList.add(finiteSum(rows, 'profit') < 0 ? 'negative-money' : 'positive-money'); $('financialDetailTable').innerHTML = rows.length ? rows.map(row => financialTableRow(row, true)).join('') : '<tr><td colspan="12" class="no-results">Nenhum dado encontrado.</td></tr>'; $('financialDetailTableWrap').scrollTop = 0; $('financialDetailTableWrap').scrollLeft = 0; $('backFinancialDetail').focus?.({ preventScroll: true });
+  const detailTotal = $('financialDetailTotal'); detailTotal.textContent = total; detailTotal.classList.remove('negative-money','positive-money'); if (kind === 'spot' && rows.length) detailTotal.classList.add(finiteSum(rows, 'profit') < 0 ? 'negative-money' : 'positive-money'); $('financialDetailTable').innerHTML = rows.length ? rows.map(row => financialTableRow(row, true)).join('') : '<tr><td colspan="13" class="no-results">Nenhum dado encontrado.</td></tr>'; $('financialDetailTableWrap').scrollTop = 0; $('financialDetailTableWrap').scrollLeft = 0; $('backFinancialDetail').focus?.({ preventScroll: true });
 }
 function closeFinancialDetail() { $('financialDetailView').classList.add('hidden'); if (state.records.length) $('dashboard').classList.remove('hidden'); setDetailMode(false); }
 function saveRate() { const values = { COOPERRITA: normalizedRate($('rateHouse').value, NaN), 'TERCEIROS FIXOS': normalizedRate($('rateFixed').value, NaN), SPOT: normalizedRate($('rateSpot').value, NaN) }; if (Object.values(values).some(value => !Number.isFinite(value) || value < 0)) return showToast('Informe somente valores válidos e positivos.'); Object.assign(state.rates, values); persistRates(); render(); showToast('Valores padrão por uso atualizados com sucesso.'); }
@@ -576,7 +606,19 @@ function renderCharts(records) {
 }
 function renderTable() { const records = filteredRecords(); $('reportCount').textContent = `${records.length} rota${records.length === 1 ? '' : 's'} encontrada${records.length === 1 ? '' : 's'}`; $('usageTable').innerHTML = records.length ? records.map(r => `<tr><td>${escapeHtml(displayDate(r))}<br><small>${escapeHtml(r.sheet)}</small></td><td><span class="fleet-tag ${r.fleet === 'COOPERRITA' ? 'tag-house' : r.fleet === 'TERCEIROS FIXOS' ? 'tag-fixed' : 'tag-spot'}">${escapeHtml(FLEETS[r.fleet])}</span></td><td>${escapeHtml(r.plate)}</td><td>${escapeHtml(r.driver || '—')}</td><td>${escapeHtml(r.shipment || '—')}</td><td>${escapeHtml(r.city || '—')}${isOvernight(r) ? '<span class="overnight">Pernoite</span>' : ''}</td><td>${escapeHtml(r.source)}</td></tr>`).join('') : '<tr><td class="no-results" colspan="7">Nenhuma utilização corresponde aos filtros.</td></tr>'; }
 function renderAbsenceTable() { const records = filteredAbsences(); $('absenceCount').textContent = `${records.length} ocorrência${records.length === 1 ? '' : 's'} no período`; $('absenceTable').innerHTML = records.length ? records.map(r => `<tr><td>${escapeHtml(displayDate(r))}<br><small>${escapeHtml(r.sheet)}</small></td><td>${escapeHtml(r.employee)}</td><td><span class="absence-tag ${r.type === 'FOLGA' ? 'absence-folga' : r.type === 'FÉRIAS' ? 'absence-ferias' : r.type === 'ATESTADO' ? 'absence-atestado' : 'absence-falta'}">${escapeHtml(ABSENCE_LABELS[r.type])}</span></td><td>${escapeHtml(r.source)}</td></tr>`).join('') : '<tr><td class="no-results" colspan="4">Nenhum afastamento corresponde aos filtros.</td></tr>'; }
-function exportCsv() { const records = filteredRecords(), absences = filteredAbsences(), financial = state.crossAnalysis?.allRows || []; if (!records.length && !absences.length && !financial.length) { showToast('Não há dados para exportar.'); return; } const lines = [['Tipo','Data/Aba','Frota / Ocorrência','Placa / Funcionário','Motorista','Telefone','Embarque','Cidades / Rota','Arquivo','Faturamento','Custo rota','Lucro','Margem','KM','Duração (dias)','Situação'], ...records.map(r => ['Rota', displayDate(r), FLEETS[r.fleet], r.plate, r.driver, r.phone, r.shipment, r.city, r.source,'','','','','','','']), ...absences.map(r => ['Afastamento', displayDate(r), ABSENCE_LABELS[r.type], r.employee, '', '', '', '', r.source,'','','','','','','']), ...financial.map(r => ['Financeiro', displayIsoDate(r.date || r.costDate), r.fleet ? FLEETS[r.fleet] : r.carrier, r.plate, r.driver, '', r.shipment, r.route, state.costBase?.fileName || '', r.revenue ?? '', r.cost ?? '', r.profit ?? '', Number.isFinite(r.margin) ? r.margin : '', r.km ?? '', r.durationDays ?? '', financialStatusLabel(r.status)])]; const csv = lines.map(row => row.map(value => `"${String(value ?? '').replaceAll('"', '""')}"`).join(';')).join('\r\n'); const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })); const link = document.createElement('a'); link.href = url; link.download = 'relatorio-frota-completo.csv'; link.click(); URL.revokeObjectURL(url); }
+function exportCsv() {
+  const records = filteredRecords(), absences = filteredAbsences(), financial = state.crossAnalysis?.allRows || [];
+  if (!records.length && !absences.length && !financial.length) { showToast('Não há dados para exportar.'); return; }
+  const lines = [
+    ['Tipo','Data saída','Data retorno','Frota / Ocorrência','Placa / Funcionário','Motorista','Telefone','Embarque','Cidades / Rota','Arquivo','Faturamento','Custo rota','Lucro','Margem','KM','Duração (dias)','Situação'],
+    ...records.map(r => ['Rota', displayDate(r), '', FLEETS[r.fleet], r.plate, r.driver, r.phone, r.shipment, r.city, r.source,'','','','','','','']),
+    ...absences.map(r => ['Afastamento', displayDate(r), '', ABSENCE_LABELS[r.type], r.employee, '', '', '', '', r.source,'','','','','','','']),
+    ...financial.map(r => ['Financeiro', displayIsoDate(r.departureDate || r.costDate || r.date), displayIsoDate(r.returnDate), r.fleet ? FLEETS[r.fleet] : r.carrier, r.plate, r.driver, '', r.shipment, r.route, state.costBase?.fileName || '', r.revenue ?? '', r.cost ?? '', r.profit ?? '', Number.isFinite(r.margin) ? r.margin : '', r.km ?? '', r.durationDays ?? '', financialStatusLabel(r.status)])
+  ];
+  const csv = lines.map(row => row.map(value => `"${String(value ?? '').replaceAll('"', '""')}"`).join(';')).join('\r\n');
+  const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })), link = document.createElement('a');
+  link.href = url; link.download = 'relatorio-frota-completo.csv'; link.click(); URL.revokeObjectURL(url);
+}
 function clearAll() { state.records = []; state.absences = []; state.audit = []; state.loadedKeys.clear(); state.crossAnalysis = null; state.driverPerformance = null; $('dashboard').classList.add('hidden'); $('indicatorView').classList.add('hidden'); $('financialDetailView').classList.add('hidden'); setDetailMode(false); $('clearData').hidden = true; $('importStatus').textContent = 'Nenhuma planilha importada'; fileInput.value = ''; folderInput.value = ''; showToast('Dados removidos do painel.'); }
 
 $('chooseFiles').addEventListener('click', () => fileInput.click()); fileInput.addEventListener('change', e => readFiles([...e.target.files])); folderInput.addEventListener('change', e => readFiles([...e.target.files]));
@@ -589,5 +631,5 @@ $('saveRate').addEventListener('click', saveRate); $('vehicleRateFleet').addEven
 document.addEventListener('click', e => { const item = e.target.closest('.cost-result'); if (item) openDetail(item.dataset.detail); });
 document.addEventListener('click', e => { const item = e.target.closest('.ranking-action'); if (item) openDetail(item.dataset.rankingKind, item.dataset.rankingFilter); });
 document.addEventListener('click', e => { const item = e.target.closest('[data-performance-driver]'); if (item) openDetail('PERFORMANCE', item.dataset.performanceDriver); });
-document.addEventListener('click', e => { const item = e.target.closest('[data-financial-kind]'); if (item) openFinancialDetail(item.dataset.financialKind, item.dataset.financialFilter || '', item.dataset.financialFleet || ''); });
+document.addEventListener('click', e => { const item = e.target.closest('[data-financial-kind]'); if (item) openFinancialDetail(item.dataset.financialKind, item.dataset.financialFilter || '', item.dataset.financialFleet || '', item.dataset.financialCategory || ''); });
 document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (!$('costSheetModal').classList.contains('hidden')) closeCostSheetPicker(); else if (!$('financialDetailView').classList.contains('hidden')) closeFinancialDetail(); else if (!$('indicatorView').classList.contains('hidden')) closeDetail(); });
