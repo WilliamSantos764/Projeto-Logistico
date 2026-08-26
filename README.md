@@ -50,11 +50,11 @@ Uma utilização é contabilizada quando há uma placa de veículo e também uma
 - Valores por utilização editáveis separadamente para carros da casa, terceiros fixos e SPOT
 - Valor individual por utilização, selecionando categoria, placa, data e rota exatas
 - Cálculo automático usando o valor individual somente na linha escolhida e o valor padrão em todas as demais utilizações, inclusive da mesma placa
-- Indicadores clicáveis com uma tela interna fixa contendo somente os registros daquele indicador
+- Indicadores clicáveis com uma tela interna fixa contendo somente os registros daquele indicador; ao voltar, o painel retorna à posição exata em que estava
 - Cabeçalho do detalhamento sempre visível e rolagem restrita à tabela de dados
 - Rankings de funcionários com mais atestados, folgas e férias
 - Rankings dos veículos mais usados separados por carros da casa, terceiros fixos e SPOT
-- Gráfico diário responsivo com rolagem interna, sem ultrapassar a largura da tela
+- Gráfico diário responsivo e clicável: cada barra abre somente as utilizações daquele dia, sem ultrapassar a largura da tela
 - Importador separado para a base de valores dos embarques
 - Detecção automática das abas mensais completas, com seleção de uma ou várias abas antes da importação
 - Consolidação das abas financeiras sem duplicar o custo de um embarque repetido

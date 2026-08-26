@@ -1,6 +1,6 @@
 /* Frota Insight — processamento local de planilhas de rota */
 function loadSavedRates() { try { return JSON.parse(localStorage.getItem('frotaInsightRates') || '{}'); } catch { localStorage.removeItem?.('frotaInsightRates'); return {}; } }
-const state = { records: [], absences: [], audit: [], loadedKeys: new Set(), rates: loadSavedRates(), costBase: null, costWorkbook: null, costFileName: '', pendingCost: null, crossAnalysis: null, driverPerformance: null };
+const state = { records: [], absences: [], audit: [], loadedKeys: new Set(), rates: loadSavedRates(), costBase: null, costWorkbook: null, costFileName: '', pendingCost: null, crossAnalysis: null, driverPerformance: null, detailOrigin: { x: 0, y: 0, active: false } };
 const $ = (id) => document.getElementById(id);
 const fileInput = $('fileInput'), folderInput = $('folderInput'), dropzone = $('dropzone'), costFileInput = $('costFileInput');
 const FLEETS = { COOPERRITA: 'Carros da casa', 'TERCEIROS FIXOS': 'Terceiros fixos', SPOT: 'SPOT' };
@@ -14,6 +14,7 @@ function hasValue(value) { return clean(value) !== ''; }
 function escapeHtml(value) { return clean(value).replace(/[&<>'"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;' }[c])); }
 function dateKey(value) { const m = clean(value).match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})/); return m ? `${m[3].length === 2 ? '20' + m[3] : m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}` : ''; }
 function displayDate(record) { if (/^\d{4}-\d{2}-\d{2}$/.test(record.date)) { const [year, month, day] = record.date.split('-'); return `${day}/${month}/${year}`; } return record.date || record.sheet; }
+function dailyRecordKey(record) { return clean(record.date || record.sheet); }
 function resemblesPlate(value) { return /\b[A-Z]{3}\s?-?\s?(?=[0-9A-Z]{4}\b)(?=[0-9A-Z]*\d)[0-9A-Z]{4}\b/i.test(clean(value)); }
 function countShipments(value) { const text = clean(value); if (!text || /CONTINUA.{0,15}ESCALA/i.test(text)) return 0; return text.match(/\d{4,}/g)?.length || 0; }
 function shipmentKeys(value) { const text = clean(value); if (!text || /CONTINUA.{0,15}ESCALA/i.test(text)) return []; return [...new Set(text.match(/\d{4,}/g) || [])]; }
@@ -43,6 +44,20 @@ function daysBetween(first, second) { if (!first || !second) return null; const 
 function isContinuation(record) { return /CONTINUA.{0,20}ESCALA/i.test(`${record.shipment} ${record.city}`); }
 function showToast(message) { const toast = $('toast'); toast.textContent = message; toast.classList.add('show'); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => toast.classList.remove('show'), 3200); }
 function setDetailMode(active) { document.documentElement.classList.toggle('detail-mode', active); document.body.classList.toggle('detail-mode', active); }
+function rememberDetailOrigin() {
+  if (document.body.classList.contains('detail-mode')) return;
+  const root = document.documentElement || {}, body = document.body || {};
+  state.detailOrigin = {
+    x: Number(window.scrollX ?? window.pageXOffset ?? root.scrollLeft ?? body.scrollLeft) || 0,
+    y: Number(window.scrollY ?? window.pageYOffset ?? root.scrollTop ?? body.scrollTop) || 0,
+    active: true
+  };
+}
+function restoreDetailOrigin() {
+  const origin = state.detailOrigin; if (!origin?.active) return;
+  state.detailOrigin = { ...origin, active: false };
+  setTimeout(() => window.scrollTo(origin.x, origin.y), 0);
+}
 function findSheetDate(rows, sheetName) { for (const row of rows.slice(0, 9)) for (const cell of row) { const found = dateKey(cell); if (found) return found; } const m = clean(sheetName).match(/^(\d{2})(\d{2})(\d{2,4})?$/); return m && m[3] ? `${m[3].length === 2 ? '20' + m[3] : m[3]}-${m[2]}-${m[1]}` : clean(sheetName); }
 
 function sectionFromRow(row) {
@@ -580,6 +595,7 @@ function renderCrossAnalysis() {
 }
 function openFinancialDetail(kind = 'all', filter = '', fleet = '', category = '') {
   const analysis = state.crossAnalysis || buildCrossAnalysis(); if (!analysis) return showToast('Importe as duas planilhas antes de abrir a análise financeira.');
+  rememberDetailOrigin();
   let rows = [...analysis.allRows], title = 'Todos os embarques', subtitle = 'Conferência entre a operação e a base de valores', detailMetric = '';
   if (['matched','revenue','cost','ton-average','ton-best','ton-highest','duration'].includes(kind)) rows = [...analysis.matchedRows];
   if (kind === 'route-only') rows = [...analysis.routeOnlyRows]; if (kind === 'cost-only') rows = [...analysis.costOnlyRows];
@@ -600,7 +616,7 @@ function openFinancialDetail(kind = 'all', filter = '', fleet = '', category = '
   const tonKinds = ['spot','ton-average','ton-best','ton-highest'], total = detailMetric || (kind === 'cost' ? money(finiteSum(rows, 'cost')) : kind === 'revenue' ? money(finiteSum(rows, 'revenue')) : tonKinds.includes(kind) ? `Média ${moneyOrDash(finiteAverage(rows, 'costPerTon'))}/ton` : `${rows.length} embarque${rows.length === 1 ? '' : 's'}`);
   const detailTotal = $('financialDetailTotal'); detailTotal.textContent = total; $('financialDetailTable').innerHTML = rows.length ? rows.map(row => financialTableRow(row, true)).join('') : '<tr><td colspan="13" class="no-results">Nenhum dado encontrado.</td></tr>'; $('financialDetailTableWrap').scrollTop = 0; $('financialDetailTableWrap').scrollLeft = 0; $('backFinancialDetail').focus?.({ preventScroll: true });
 }
-function closeFinancialDetail() { $('financialDetailView').classList.add('hidden'); if (state.records.length) $('dashboard').classList.remove('hidden'); setDetailMode(false); }
+function closeFinancialDetail() { $('financialDetailView').classList.add('hidden'); if (state.records.length) $('dashboard').classList.remove('hidden'); setDetailMode(false); restoreDetailOrigin(); }
 function saveRate() { const values = { COOPERRITA: normalizedRate($('rateHouse').value, NaN), 'TERCEIROS FIXOS': normalizedRate($('rateFixed').value, NaN), SPOT: normalizedRate($('rateSpot').value, NaN) }; if (Object.values(values).some(value => !Number.isFinite(value) || value < 0)) return showToast('Informe somente valores válidos e positivos.'); Object.assign(state.rates, values); persistRates(); render(); showToast('Valores padrão por uso atualizados com sucesso.'); }
 function saveVehicleRate() {
   const record = selectedUsage(), rawValue = clean($('vehicleRateValue').value), value = normalizedRate(rawValue, NaN);
@@ -626,6 +642,7 @@ function openDetail(kind, filter = '') {
   const absenceType = ['FOLGA','FÉRIAS','ATESTADO','FALTA'].includes(kind);
   const performanceDriver = kind === 'PERFORMANCE' ? (state.driverPerformance || buildDriverPerformance(state.crossAnalysis)).drivers.find(driver => driver.key === filter) : null;
   if (kind === 'PERFORMANCE' && !performanceDriver) return showToast('Não foi possível localizar os dados deste motorista.');
+  rememberDetailOrigin();
   $('dashboard').classList.add('hidden'); $('financialDetailView').classList.add('hidden'); $('indicatorView').classList.remove('hidden'); setDetailMode(true);
   if (kind === 'PERFORMANCE') {
     setIndicatorTableHeader('performance'); $('indicatorTitle').textContent = `Menor desempenho — ${performanceDriver.name}`; $('indicatorSubtitle').textContent = `${performanceDriver.routeUses} utilização${performanceDriver.routeUses === 1 ? '' : 'ões'} • ${performanceTonLabel(performanceDriver)} • ${performanceBreakdown(performanceDriver)}. Revise cada ocorrência antes de qualquer decisão.`; $('indicatorTotal').textContent = `${performanceDriver.score} ponto${performanceDriver.score === 1 ? '' : 's'}`;
@@ -637,18 +654,21 @@ function openDetail(kind, filter = '') {
     $('indicatorTable').innerHTML = items.map(r => `<tr><td>${escapeHtml(displayDate(r))}</td><td>${escapeHtml(ABSENCE_LABELS[kind])}</td><td>${escapeHtml(r.employee)}</td><td>—</td><td>—</td><td>${escapeHtml(r.sheet)}</td><td>—</td></tr>`).join('') || '<tr><td colspan="7" class="no-results">Sem dados.</td></tr>';
   } else {
     setIndicatorTableHeader();
-    let records = kind === 'all' ? sortedRecords() : sortedRecords().filter(r => r.fleet === kind);
+    const dayDetail = kind === 'DAY';
+    let records = kind === 'all' ? sortedRecords() : dayDetail ? sortedRecords().filter(r => dailyRecordKey(r) === clean(filter)) : sortedRecords().filter(r => r.fleet === kind);
     if (kind === 'OVERNIGHT') records = sortedRecords().filter(isOvernight);
-    if (filter) records = records.filter(r => r.plate === filter);
-    const title = kind === 'all' ? 'Veículos-dia em rota' : kind === 'OVERNIGHT' ? 'Rotas com pernoite' : FLEETS[kind];
+    if (filter && !dayDetail) records = records.filter(r => r.plate === filter);
+    const dayLabel = dayDetail ? displayDate({ date: filter, sheet: filter }) : '';
+    const title = kind === 'all' ? 'Veículos-dia em rota' : kind === 'OVERNIGHT' ? 'Rotas com pernoite' : dayDetail ? `Uso da frota — ${dayLabel}` : FLEETS[kind];
     const total = sumRecordCosts(records);
-    $('indicatorTitle').textContent = `${title}${filter ? ` — ${filter}` : ''}`; $('indicatorSubtitle').textContent = `${records.length} utilização${records.length === 1 ? '' : 'ões'} que compõem este indicador`; $('indicatorTotal').textContent = money(total);
+    const fleetSummary = dayDetail ? FLEET_ORDER.filter(fleet => records.some(record => record.fleet === fleet)).map(fleet => `${FLEETS[fleet]}: ${records.filter(record => record.fleet === fleet).length}`).join(' • ') : '';
+    $('indicatorTitle').textContent = `${title}${filter && !dayDetail ? ` — ${filter}` : ''}`; $('indicatorSubtitle').textContent = dayDetail ? `${records.length} utilização${records.length === 1 ? '' : 'ões'} que compõem esta barra${fleetSummary ? ` • ${fleetSummary}` : ''} • custo configurado ${money(total)}` : `${records.length} utilização${records.length === 1 ? '' : 'ões'} que compõem este indicador`; $('indicatorTotal').textContent = dayDetail ? `${records.length} veículo${records.length === 1 ? '' : 's'}-dia` : money(total);
     $('indicatorTable').innerHTML = records.map(r => `<tr><td>${escapeHtml(displayDate(r))}</td><td>${escapeHtml(FLEETS[r.fleet])}</td><td>${escapeHtml(r.plate)}</td><td>${escapeHtml(r.driver || '—')}</td><td>${escapeHtml(r.shipment || '—')}</td><td>${escapeHtml(r.city || '—')}</td><td>${money(recordRate(r))}${hasUsageRate(r) ? '<small class="individual-rate-note">Individual</small>' : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="no-results">Sem dados.</td></tr>';
   }
   $('indicatorTableWrap').scrollTop = 0; $('indicatorTableWrap').scrollLeft = 0; $('backDashboard').focus?.({ preventScroll: true });
 }
 
-function closeDetail() { $('indicatorView').classList.add('hidden'); if (state.records.length) $('dashboard').classList.remove('hidden'); setDetailMode(false); }
+function closeDetail() { $('indicatorView').classList.add('hidden'); if (state.records.length) $('dashboard').classList.remove('hidden'); setDetailMode(false); restoreDetailOrigin(); }
 
 function render() {
   $('indicatorView').classList.add('hidden'); $('financialDetailView').classList.add('hidden'); $('dashboard').classList.remove('hidden'); setDetailMode(false); $('clearData').hidden = false; const records = sortedRecords();
@@ -658,9 +678,9 @@ function render() {
   renderCharts(records); renderTable(); renderAbsenceTable(); renderCosts(); renderVehicleRateEditor(); renderInsights(); renderCrossAnalysis(); renderDriverPerformance(); $('auditSummary').textContent = `${state.audit.filter(v => /concluída/.test(v)).length} arquivo(s) analisado(s).`; $('auditList').innerHTML = state.audit.slice(0, 100).map(item => `<li>${escapeHtml(item)}</li>`).join('');
 }
 function renderCharts(records) {
-  const daily = new Map(); records.forEach(r => { const day = r.date || r.sheet; if (!daily.has(day)) daily.set(day, { COOPERRITA: 0, 'TERCEIROS FIXOS': 0, SPOT: 0 }); daily.get(day)[r.fleet]++; });
+  const daily = new Map(); records.forEach(r => { const day = dailyRecordKey(r); if (!daily.has(day)) daily.set(day, { COOPERRITA: 0, 'TERCEIROS FIXOS': 0, SPOT: 0 }); daily.get(day)[r.fleet]++; });
   const rows = [...daily.entries()].sort((a, b) => a[0].localeCompare(b[0])); const max = Math.max(...rows.map(([, counts]) => Object.values(counts).reduce((sum, n) => sum + n, 0)), 1);
-  $('dailyChart').innerHTML = rows.map(([day, counts]) => { const total = Object.values(counts).reduce((sum, n) => sum + n, 0); const segments = FLEET_ORDER.filter(f => counts[f]).map(f => `<span class="bar-segment ${f === 'COOPERRITA' ? 'house-bar' : f === 'TERCEIROS FIXOS' ? 'fixed-bar' : 'spot-bar'}" style="height:${(counts[f] / total) * 100}%"></span>`).join(''); return `<div class="bar-item" title="${escapeHtml(day)}: ${total} veículo(s)-dia"><span class="bar-value">${total}</span><div class="bar stacked-bar" style="height:${Math.max(3, Math.round((total / max) * 138))}px">${segments}</div><span class="bar-label">${escapeHtml(day.slice(5).split('-').reverse().join('/') || day)}</span></div>`; }).join('');
+  $('dailyChart').innerHTML = rows.map(([day, counts]) => { const total = Object.values(counts).reduce((sum, n) => sum + n, 0), dayLabel = displayDate({ date: day, sheet: day }); const segments = FLEET_ORDER.filter(f => counts[f]).map(f => `<span class="bar-segment ${f === 'COOPERRITA' ? 'house-bar' : f === 'TERCEIROS FIXOS' ? 'fixed-bar' : 'spot-bar'}" style="height:${(counts[f] / total) * 100}%"></span>`).join(''); return `<button class="bar-item chart-day-action" type="button" data-chart-day="${escapeHtml(day)}" title="${escapeHtml(dayLabel)}: ${total} veículo(s)-dia. Clique para ver os registros." aria-label="Ver ${total} utilização${total === 1 ? '' : 'ões'} de ${escapeHtml(dayLabel)}"><span class="bar-value">${total}</span><span class="bar stacked-bar" style="height:${Math.max(3, Math.round((total / max) * 138))}px">${segments}</span><span class="bar-label">${escapeHtml(/^\d{4}-\d{2}-\d{2}$/.test(day) ? day.slice(5).split('-').reverse().join('/') : day)}</span></button>`; }).join('');
   $('noChart').classList.toggle('hidden', rows.length > 0);
   const plates = new Map(); records.forEach(r => { const current = plates.get(r.plate) || { count: 0, fleets: new Set() }; current.count++; current.fleets.add(r.fleet); plates.set(r.plate, current); }); const rank = [...plates.entries()].sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0])).slice(0, 6);
   $('vehicleRanking').innerHTML = rank.length ? rank.map(([plate, info], i) => `<li><span class="rank-number">${i + 1}</span><span class="rank-name">${escapeHtml(plate)}<small>${escapeHtml([...info.fleets].map(f => FLEETS[f]).join(' • '))}</small></span><span class="rank-count">${info.count} uso${info.count === 1 ? '' : 's'}</span></li>`).join('') : '<li class="no-results">Sem dados.</li>';
@@ -692,5 +712,6 @@ $('saveRate').addEventListener('click', saveRate); $('vehicleRateFleet').addEven
 document.addEventListener('click', e => { const item = e.target.closest('.cost-result'); if (item) openDetail(item.dataset.detail); });
 document.addEventListener('click', e => { const item = e.target.closest('.ranking-action'); if (item) openDetail(item.dataset.rankingKind, item.dataset.rankingFilter); });
 document.addEventListener('click', e => { const item = e.target.closest('[data-performance-driver]'); if (item) openDetail('PERFORMANCE', item.dataset.performanceDriver); });
+document.addEventListener('click', e => { const item = e.target.closest('[data-chart-day]'); if (item) openDetail('DAY', item.dataset.chartDay); });
 document.addEventListener('click', e => { const item = e.target.closest('[data-financial-kind]'); if (item) openFinancialDetail(item.dataset.financialKind, item.dataset.financialFilter || '', item.dataset.financialFleet || '', item.dataset.financialCategory || ''); });
 document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (!$('costSheetModal').classList.contains('hidden')) closeCostSheetPicker(); else if (!$('financialDetailView').classList.contains('hidden')) closeFinancialDetail(); else if (!$('indicatorView').classList.contains('hidden')) closeDetail(); });
