@@ -23,7 +23,7 @@ Cada nova seleção de arquivos substitui integralmente a importação anterior.
 
 As abas selecionadas são consolidadas em uma única base. Uma nova escolha substitui apenas a base de valores anterior e não modifica as planilhas de rotas, os indicadores ou os valores manuais já existentes no painel.
 
-No arquivo de referência foram reconhecidas as bases de janeiro a julho. O detector procura os cabeçalhos `EMBARQUE`, `DATA SAIDA` e `TOTAL FATURAMENTO`, separando as bases mensais das abas auxiliares, painéis e bases de despesas. Depois, localiza dinamicamente `CUSTO ROTA`, `ROTA`, `RETORNO ROTA`, `LEAD TIME DA ROTA`, `KM ROTA` e os demais campos, mesmo quando mudam de coluna.
+No arquivo de referência foram reconhecidas as bases de janeiro a julho. O detector procura os cabeçalhos `EMBARQUE`, `DATA SAIDA` e `TOTAL FATURAMENTO`, separando as bases mensais das abas auxiliares, painéis e bases de despesas. Depois, localiza dinamicamente `R$/TON`, `CUSTO ROTA`, `ROTA`, `RETORNO ROTA`, `LEAD TIME DA ROTA`, `KM ROTA` e os demais campos, mesmo quando mudam de coluna. Se o texto do cabeçalho `R$/TON` não estiver legível, a coluna AF é usada como posição de segurança.
 
 Nas abas mensais atuais da planilha **Custo - Copia**, a data exata de saída é lida da coluna B e a data de retorno da coluna R. O sistema continua conferindo os nomes dos cabeçalhos para aceitar abas antigas em que essas colunas estejam deslocadas. O mês e o ano exibidos vêm da data de saída da própria base financeira, e a duração é calculada prioritariamente pela diferença entre saída e retorno; `LEAD TIME DA ROTA` é usado somente quando uma dessas datas não está disponível.
 
@@ -57,17 +57,19 @@ Uma utilização é contabilizada quando há uma placa de veículo e também uma
 - Detecção automática das abas mensais completas, com seleção de uma ou várias abas antes da importação
 - Consolidação das abas financeiras sem duplicar o custo de um embarque repetido
 - Cruzamento automático entre a planilha operacional e a base financeira pelo número do embarque
-- Total de faturamento, custo da rota, lucro, margem e custo médio somente dos embarques encontrados nas duas bases
-- Lucro calculado como `TOTAL FATURAMENTO - CUSTO ROTA`
-- Resultado exclusivo dos SPOTs com faturamento, custo, lucro ou prejuízo, margem e quantidade de embarques negativos
-- Detalhamento clicável dos SPOTs, ordenando primeiro os embarques que deram maior prejuízo
-- Top 3 para bonificação separado entre carros da casa e terceiros fixos, usando como critério o menor custo médio por embarque
-- Top 3 geral de motoristas da casa e terceiros fixos em rotas próximas (até 150 km), combinando menor custo por km com menor tempo entre a saída e o retorno
-- Top 3 geral de motoristas da casa e terceiros fixos em rotas longas (acima de 150 km), usando a mesma comparação de custo e velocidade de retorno
-- Selo de qualidade por motorista: `Padrão consistente`, `Em observação`, `Fora do padrão` ou `Amostra inicial`, calculado pela proporção de viagens dentro das referências de custo por km e duração do próprio período
+- Total de faturamento e custo da rota para conferência, mais R$/ton médio, menor e maior valor somente dos embarques encontrados nas duas bases
+- R$/ton lido diretamente da coluna AF da base de valores, sem reconstruir o indicador por outra fórmula
+- Painel exclusivo dos SPOTs com custo total, R$/ton médio, menor, maior e quantidade de embarques sem esse valor
+- Detalhamento clicável dos SPOTs, ordenado do menor para o maior R$/ton
+- Top 3 para bonificação separado entre carros da casa e terceiros fixos, usando como critério o menor R$/ton médio
+- Rankings separados de carros da casa e terceiros fixos em rotas próximas (até 150 km), combinando menor R$/ton com menor tempo entre a saída e o retorno
+- Rankings separados de carros da casa e terceiros fixos em rotas longas (acima de 150 km), usando a mesma comparação de R$/ton e velocidade de retorno
+- Os três melhores de cada frota ficam destacados, todos os demais continuam listados abaixo em ordem de eficiência e motoristas sem todos os campos necessários aparecem no fim como `Dados insuficientes`
+- As referências de R$/ton e duração são calculadas separadamente para carros da casa e terceiros fixos, evitando comparar categorias com estruturas diferentes
+- Selo de qualidade por motorista: `Padrão consistente`, `Em observação`, `Fora do padrão` ou `Amostra inicial`, calculado pela proporção de viagens dentro das referências de R$/ton e duração do próprio período
 - Rankings de qualidade clicáveis, com as datas exatas de saída e retorno e somente as viagens que formaram a avaliação
-- Ranking clicável de motoristas com menor desempenho, somando faltas, atestados, rotas de até 150 km que passaram de um dia, custo por km acima de 25% da mediana da mesma frota e embarques com prejuízo
-- Pontuação visível e auditável: falta `+5`, atestado `+3`, rota curta demorada `+3`, custo por km elevado `+2` e prejuízo `+2`
+- Ranking clicável de motoristas com menor desempenho, mostrando também o R$/ton médio por motorista e somando faltas, atestados, rotas de até 150 km que passaram de um dia e R$/ton acima de 25% da mediana da mesma frota
+- Pontuação visível e auditável: falta `+5`, atestado `+3`, rota curta demorada `+3` e R$/ton elevado `+2`
 - Tela fixa com todas as ocorrências que formaram a pontuação; o indicador exige revisão humana antes de qualquer decisão
 - Ranking das viagens mais demoradas usando prioritariamente a diferença entre a data de saída e a data de retorno e, quando necessário, `LEAD TIME DA ROTA`
 - Tabela completa com busca e filtros para embarques cruzados, sem custo e sem rota
