@@ -1,6 +1,6 @@
 /* Frota Insight — processamento local de planilhas de rota */
 function loadSavedRates() { try { return JSON.parse(localStorage.getItem('frotaInsightRates') || '{}'); } catch { localStorage.removeItem?.('frotaInsightRates'); return {}; } }
-const state = { records: [], absences: [], audit: [], loadedKeys: new Set(), rates: loadSavedRates(), costBase: null, costWorkbook: null, costFileName: '', pendingCost: null, crossAnalysis: null };
+const state = { records: [], absences: [], audit: [], loadedKeys: new Set(), rates: loadSavedRates(), costBase: null, costWorkbook: null, costFileName: '', pendingCost: null, crossAnalysis: null, driverPerformance: null };
 const $ = (id) => document.getElementById(id);
 const fileInput = $('fileInput'), folderInput = $('folderInput'), dropzone = $('dropzone'), costFileInput = $('costFileInput');
 const FLEETS = { COOPERRITA: 'Carros da casa', 'TERCEIROS FIXOS': 'Terceiros fixos', SPOT: 'SPOT' };
@@ -120,7 +120,7 @@ function extractSheet(rows, source, sheet) {
   return { records, absences, message: headers ? `${sheet}: ${records.length} rota(s), ${absences.length} afastamento(s), ${headers} cabeçalho(s) lido(s).${detail}` : `${sheet}: nenhum cabeçalho de Placa/Motorista reconhecido.` };
 }
 function resetImportedData() {
-  state.records = []; state.absences = []; state.audit = []; state.loadedKeys.clear(); state.crossAnalysis = null;
+  state.records = []; state.absences = []; state.audit = []; state.loadedKeys.clear(); state.crossAnalysis = null; state.driverPerformance = null;
   $('dashboard').classList.add('hidden'); $('indicatorView').classList.add('hidden'); $('financialDetailView')?.classList.add('hidden'); setDetailMode(false);
   $('searchInput').value = ''; $('dateFilter').value = ''; $('fleetFilter').value = ''; $('plateFilter').value = ''; $('employeeFilter').value = ''; $('absenceFilter').value = '';
 }
@@ -173,7 +173,7 @@ function costColumnMap(headers) {
 }
 function rowValue(row, column) { return column >= 0 && column < row.length ? row[column] : ''; }
 function costCandidateScore(record) { return ['cost','revenue','route','plate','departureDate','returnDate','km'].reduce((score, field) => score + (record[field] !== null && hasValue(record[field]) ? 1 : 0), 0); }
-function extractCostRecords(rows, headerIndex, headers) {
+function extractCostRecords(rows, headerIndex, headers, sourceSheet = '') {
   const columns = costColumnMap(headers), candidates = new Map();
   if (headerIndex < 0 || columns.shipment < 0) return { records: [], columns, duplicates: [], sourceRows: 0 };
   let sourceRows = 0;
@@ -184,7 +184,7 @@ function extractCostRecords(rows, headerIndex, headers) {
     const departureDate = isoDateValue(rowValue(row, columns.departure)), returnDate = isoDateValue(rowValue(row, columns.returnDate));
     const leadTime = parseLocaleNumber(rowValue(row, columns.leadTime));
     const base = {
-      sourceRow: headerIndex + offset + 2, sourceShipment: clean(rowValue(row, columns.shipment)), departureDate, returnDate,
+      sourceSheet: clean(sourceSheet), sourceRow: headerIndex + offset + 2, sourceShipment: clean(rowValue(row, columns.shipment)), departureDate, returnDate,
       plate: clean(rowValue(row, columns.plate)), carrier: clean(rowValue(row, columns.carrier)), profile: clean(rowValue(row, columns.profile)), capacity: clean(rowValue(row, columns.capacity)),
       route: clean(rowValue(row, columns.route)), seller: clean(rowValue(row, columns.seller)), totalTons: parseLocaleNumber(rowValue(row, columns.totalTons)), occupation: parseLocaleNumber(rowValue(row, columns.occupation)),
       revenue: rawRevenue === null ? null : roundedMoney(rawRevenue / allocation), cost: rawCost === null ? null : roundedMoney(rawCost / allocation), km: parseLocaleNumber(rowValue(row, columns.km)),
@@ -195,7 +195,7 @@ function extractCostRecords(rows, headerIndex, headers) {
   });
   const duplicates = [], records = [];
   candidates.forEach((items, shipment) => {
-    if (items.length > 1) duplicates.push({ shipment, rows: items.map(item => item.sourceRow) });
+    if (items.length > 1) duplicates.push({ shipment, sheet: clean(sourceSheet), rows: items.map(item => item.sourceRow) });
     const selected = [...items].sort((a, b) => costCandidateScore(b) - costCandidateScore(a) || a.sourceRow - b.sourceRow)[0]; records.push({ ...selected, duplicateRows: items.length });
   });
   records.sort((a, b) => Number(a.shipment) - Number(b.shipment) || a.shipment.localeCompare(b.shipment));
@@ -221,7 +221,7 @@ function buildCrossAnalysis() {
   const costRecords = state.costBase.costRecords || [], costMap = new Map(costRecords.map(record => [record.shipment, record])), matchedRows = [], costOnlyRows = [];
   costRecords.forEach(costRecord => {
     const candidates = routeIndex.get(costRecord.shipment) || [], routeRecord = bestRouteMatch(costRecord, candidates), profit = financialProfit(costRecord.revenue, costRecord.cost);
-    const common = { shipment: costRecord.shipment, costDate: costRecord.departureDate, routeDate: routeRecord?.date || '', date: routeRecord?.date || costRecord.departureDate, fleet: routeRecord?.fleet || '', plate: routeRecord?.plate || costRecord.plate, driver: routeRecord?.driver || '', route: costRecord.route || routeRecord?.city || '', dailyRoute: routeRecord?.city || '', carrier: costRecord.carrier, profile: costRecord.profile, capacity: costRecord.capacity, seller: costRecord.seller, totalTons: costRecord.totalTons, occupation: costRecord.occupation, revenue: costRecord.revenue, cost: costRecord.cost, profit, margin: financialMargin(profit, costRecord.revenue), km: costRecord.km, costPerTon: costRecord.costPerTon, costPerKg: costRecord.costPerKg, departureDate: costRecord.departureDate, returnDate: costRecord.returnDate, durationDays: costRecord.durationDays, costSourceRow: costRecord.sourceRow, duplicateRows: costRecord.duplicateRows, sharedShipments: costRecord.sharedShipments, routeMatches: candidates.length, routeSource: routeRecord?.source || '', routeSheet: routeRecord?.sheet || '' };
+    const common = { shipment: costRecord.shipment, costDate: costRecord.departureDate, routeDate: routeRecord?.date || '', date: routeRecord?.date || costRecord.departureDate, fleet: routeRecord?.fleet || '', plate: routeRecord?.plate || costRecord.plate, driver: routeRecord?.driver || '', route: costRecord.route || routeRecord?.city || '', dailyRoute: routeRecord?.city || '', carrier: costRecord.carrier, profile: costRecord.profile, capacity: costRecord.capacity, seller: costRecord.seller, totalTons: costRecord.totalTons, occupation: costRecord.occupation, revenue: costRecord.revenue, cost: costRecord.cost, profit, margin: financialMargin(profit, costRecord.revenue), km: costRecord.km, costPerTon: costRecord.costPerTon, costPerKg: costRecord.costPerKg, departureDate: costRecord.departureDate, returnDate: costRecord.returnDate, durationDays: costRecord.durationDays, costSourceSheet: costRecord.sourceSheet || '', costSourceRow: costRecord.sourceRow, duplicateRows: costRecord.duplicateRows, sharedShipments: costRecord.sharedShipments, routeMatches: candidates.length, routeSource: routeRecord?.source || '', routeSheet: routeRecord?.sheet || '' };
     if (routeRecord) matchedRows.push({ ...common, status: 'matched' }); else costOnlyRows.push({ ...common, status: 'cost-only' });
   });
   const routeOnlyRows = [];
@@ -249,39 +249,72 @@ function durationLabel(value) { return Number.isFinite(value) ? `${numberPt(valu
 function financialStatusLabel(status) { return status === 'matched' ? 'Cruzado' : status === 'route-only' ? 'Sem custo' : 'Sem rota'; }
 function financialStatusClass(status) { return status === 'matched' ? 'financial-ok' : status === 'route-only' ? 'financial-warning' : 'financial-missing'; }
 function setCostSheetModal(open) { $('costSheetModal').classList.toggle('hidden', !open); document.documentElement.classList.toggle('cost-sheet-open', open); document.body.classList.toggle('cost-sheet-open', open); }
+function costBaseSheetNames(base = state.costBase) { return base ? (base.sheetNames?.length ? base.sheetNames : [base.sheetName].filter(Boolean)) : []; }
+function costBaseLabel(base = state.costBase) { return costBaseSheetNames(base).map(clean).join(' + '); }
+function renderCostSheetOptions() {
+  const pending = state.pendingCost; if (!pending) return;
+  $('costSheetOptions').innerHTML = pending.names.map((name, index) => `<label class="cost-sheet-option"><input type="checkbox" data-cost-sheet-index="${index}" ${pending.selectedIndexes.has(index) ? 'checked' : ''}/><span><strong>${escapeHtml(costSheetOptionLabel(name))}</strong><small>${escapeHtml(name)}</small></span></label>`).join('');
+  const count = pending.selectedIndexes.size; $('costSelectedCount').textContent = count ? `${count} aba${count === 1 ? '' : 's'} selecionada${count === 1 ? '' : 's'}` : 'Nenhuma aba selecionada'; $('confirmCostSheet').disabled = !count;
+}
+function selectPendingCostSheets(indexes) {
+  const pending = state.pendingCost; if (!pending) return;
+  pending.selectedIndexes = new Set(indexes.map(Number).filter(index => Number.isInteger(index) && index >= 0 && index < pending.names.length)); renderCostSheetOptions();
+}
+function updatePendingCostSheet(index, checked) {
+  const pending = state.pendingCost; if (!pending || !Number.isInteger(index) || index < 0 || index >= pending.names.length) return;
+  if (checked) pending.selectedIndexes.add(index); else pending.selectedIndexes.delete(index);
+  const count = pending.selectedIndexes.size; $('costSelectedCount').textContent = count ? `${count} aba${count === 1 ? '' : 's'} selecionada${count === 1 ? '' : 's'}` : 'Nenhuma aba selecionada'; $('confirmCostSheet').disabled = !count;
+}
 function openCostSheetPicker(workbook, fileName) {
   const detected = detectedCostSheets(workbook); if (!detected.names.length) throw new Error('O arquivo não possui abas para selecionar.');
-  state.pendingCost = { workbook, fileName, names: detected.names, automatic: detected.automatic };
-  $('costSheetSelect').innerHTML = detected.names.map((name, index) => `<option value="${index}">${escapeHtml(costSheetOptionLabel(name))}</option>`).join(''); $('costSheetSelect').value = '0';
-  $('costSheetFileName').textContent = fileName; $('costSheetHelp').textContent = detected.automatic ? `${detected.names.length} ${detected.names.length === 1 ? 'base mensal reconhecida' : 'bases mensais reconhecidas'}. Escolha qual mês deseja carregar.` : 'Não foi possível reconhecer automaticamente uma base mensal. Escolha uma das abas disponíveis.';
-  setCostSheetModal(true); $('costSheetSelect').focus?.({ preventScroll: true });
+  const previousNames = state.costBase?.fileName === fileName ? costBaseSheetNames() : [], selectedIndexes = new Set(detected.names.map((name, index) => previousNames.includes(name) ? index : -1).filter(index => index >= 0));
+  if (!selectedIndexes.size) selectedIndexes.add(0);
+  state.pendingCost = { workbook, fileName, names: detected.names, automatic: detected.automatic, selectedIndexes };
+  renderCostSheetOptions(); $('costSheetFileName').textContent = fileName; $('costSheetHelp').textContent = detected.automatic ? `${detected.names.length} ${detected.names.length === 1 ? 'base mensal reconhecida' : 'bases mensais reconhecidas'}. Marque uma ou várias abas para consolidar.` : 'Não foi possível reconhecer automaticamente uma base mensal. Marque uma ou várias abas disponíveis.';
+  setCostSheetModal(true); $('costSheetOptions').focus?.({ preventScroll: true });
 }
 async function prepareCostFile(file) {
   if (!file) return;
   if (!window.XLSX) { showToast('Não foi possível carregar o leitor de Excel. Verifique sua conexão e tente novamente.'); return; }
-  const previousStatus = state.costBase ? `${state.costBase.fileName} • ${clean(state.costBase.sheetName)} • ${state.costBase.recordCount} embarque${state.costBase.recordCount === 1 ? '' : 's'}` : 'Nenhuma base de valores importada';
+  const previousStatus = state.costBase ? `${state.costBase.fileName} • ${costBaseSheetNames().length} aba${costBaseSheetNames().length === 1 ? '' : 's'} • ${state.costBase.recordCount} embarque${state.costBase.recordCount === 1 ? '' : 's'}` : 'Nenhuma base de valores importada';
   $('costImportStatus').textContent = `Analisando as abas de ${file.name}...`;
-  try { const data = await file.arrayBuffer(), workbook = XLSX.read(data, { type: 'array', cellDates: true }); openCostSheetPicker(workbook, file.name); $('costImportStatus').textContent = `${file.name} • escolha uma aba para concluir`; }
+  try { const data = await file.arrayBuffer(), workbook = XLSX.read(data, { type: 'array', cellDates: true }); openCostSheetPicker(workbook, file.name); $('costImportStatus').textContent = `${file.name} • escolha uma ou mais abas para concluir`; }
   catch (error) { $('costImportStatus').textContent = previousStatus; showToast(`Não foi possível ler a base de valores: ${error.message}`); }
 }
 function closeCostSheetPicker() { setCostSheetModal(false); state.pendingCost = null; renderCostBaseStatus(); }
 function renderCostBaseStatus() {
   const base = state.costBase;
   if (!base) { $('costImportStatus').textContent = 'Nenhuma base de valores importada'; $('costImportSummary').classList.add('hidden'); $('changeCostSheet').hidden = true; return; }
-  $('costImportStatus').textContent = `${base.fileName} • ${clean(base.sheetName)} • ${base.recordCount} embarque${base.recordCount === 1 ? '' : 's'}`;
-  const headerCount = base.headers.filter(Boolean).length, costReady = base.columns?.cost >= 0 ? 'Custo da rota detectado' : 'Custo da rota não encontrado'; $('costBaseSheet').textContent = clean(base.sheetName); $('costBaseDetails').textContent = `${base.recordCount} embarque${base.recordCount === 1 ? '' : 's'} • ${headerCount} coluna${headerCount === 1 ? '' : 's'} detectada${headerCount === 1 ? '' : 's'} • ${costReady}`;
+  const names = costBaseSheetNames(base), sheetCount = names.length; $('costImportStatus').textContent = `${base.fileName} • ${sheetCount} aba${sheetCount === 1 ? '' : 's'} • ${base.recordCount} embarque${base.recordCount === 1 ? '' : 's'}`;
+  const headerCount = base.headers.filter(Boolean).length, costReady = base.columns?.cost >= 0 ? 'Custo da rota detectado' : 'Custo da rota não encontrado'; $('costBaseSheet').textContent = costBaseLabel(base); $('costBaseDetails').textContent = `${sheetCount} aba${sheetCount === 1 ? '' : 's'} consolidada${sheetCount === 1 ? '' : 's'} • ${base.recordCount} embarque${base.recordCount === 1 ? '' : 's'} único${base.recordCount === 1 ? '' : 's'} • ${headerCount} cabeçalho${headerCount === 1 ? '' : 's'} • ${costReady}`;
   $('costImportSummary').classList.remove('hidden'); $('changeCostSheet').hidden = false;
 }
+function parseCostSheet(workbook, sheetName) {
+  const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: '', raw: true, blankrows: false, dateNF: 'dd/mm/yyyy' });
+  let headerIndex = costHeaderIndex(rows); if (headerIndex < 0) headerIndex = costHeaderIndex(rows, false);
+  const headers = headerIndex >= 0 ? rows[headerIndex].map(clean) : []; if (headerIndex < 0 || !headers.some(header => norm(header) === 'EMBARQUE')) throw new Error(`o cabeçalho EMBARQUE não foi localizado em ${clean(sheetName)}`);
+  const parsed = extractCostRecords(rows, headerIndex, headers, sheetName); return { sheetName, rows, headerIndex, headers, ...parsed };
+}
+function mergeCostSheetBases(sheetBases) {
+  const candidates = new Map();
+  sheetBases.forEach((base, sheetOrder) => base.records.forEach(record => { if (!candidates.has(record.shipment)) candidates.set(record.shipment, []); candidates.get(record.shipment).push({ ...record, sheetOrder }); }));
+  const records = [], duplicates = [];
+  candidates.forEach((items, shipment) => {
+    const occurrenceCount = items.reduce((sum, item) => sum + Math.max(1, Number(item.duplicateRows) || 1), 0), selected = [...items].sort((a,b) => costCandidateScore(b) - costCandidateScore(a) || a.sheetOrder - b.sheetOrder || a.sourceRow - b.sourceRow)[0];
+    if (occurrenceCount > 1) duplicates.push({ shipment, sheets: [...new Set(items.map(item => item.sourceSheet).filter(Boolean))], rows: items.map(item => ({ sheet: item.sourceSheet, row: item.sourceRow })) });
+    const { sheetOrder, ...cleanRecord } = selected; records.push({ ...cleanRecord, duplicateRows: occurrenceCount });
+  });
+  records.sort((a,b) => Number(a.shipment) - Number(b.shipment) || a.shipment.localeCompare(b.shipment)); return { records, duplicates };
+}
 function confirmCostSheetImport() {
-  const pending = state.pendingCost, selectedIndex = Number($('costSheetSelect').value), sheetName = pending?.names[selectedIndex]; if (!pending || !Number.isInteger(selectedIndex) || !sheetName) return showToast('Escolha uma aba válida para importar.');
+  const pending = state.pendingCost, selectedIndexes = pending ? [...pending.selectedIndexes].sort((a,b) => a - b) : [], sheetNames = selectedIndexes.map(index => pending.names[index]).filter(Boolean); if (!pending || !sheetNames.length) return showToast('Marque pelo menos uma aba válida para importar.');
   try {
-    const rows = XLSX.utils.sheet_to_json(pending.workbook.Sheets[sheetName], { header: 1, defval: '', raw: true, blankrows: false, dateNF: 'dd/mm/yyyy' });
-    let headerIndex = costHeaderIndex(rows); if (headerIndex < 0) headerIndex = costHeaderIndex(rows, false);
-    const headers = headerIndex >= 0 ? rows[headerIndex].map(clean) : []; if (headerIndex < 0 || !headers.some(header => norm(header) === 'EMBARQUE')) throw new Error('o cabeçalho EMBARQUE não foi localizado na aba');
-    const parsed = extractCostRecords(rows, headerIndex, headers), recordCount = parsed.records.length;
-    state.costBase = { fileName: pending.fileName, sheetName, rows, headerIndex, headers, recordCount, costRecords: parsed.records, columns: parsed.columns, duplicates: parsed.duplicates, sourceRows: parsed.sourceRows }; state.costWorkbook = pending.workbook; state.costFileName = pending.fileName; state.crossAnalysis = null;
-    setCostSheetModal(false); state.pendingCost = null; renderCostBaseStatus(); if (state.records.length) render(); showToast(`Aba ${clean(sheetName)} importada e pronta para cruzar os embarques.`);
-  } catch (error) { showToast(`Não foi possível importar a aba escolhida: ${error.message}`); }
+    const sheetBases = sheetNames.map(sheetName => parseCostSheet(pending.workbook, sheetName)), merged = mergeCostSheetBases(sheetBases), first = sheetBases[0];
+    const headerMap = new Map(); sheetBases.flatMap(base => base.headers).filter(Boolean).forEach(header => { const key = norm(header); if (!headerMap.has(key)) headerMap.set(key, header); });
+    const columnKeys = [...new Set(sheetBases.flatMap(base => Object.keys(base.columns || {})))], columns = Object.fromEntries(columnKeys.map(key => [key, sheetBases.some(base => base.columns?.[key] >= 0) ? 0 : -1]));
+    state.costBase = { fileName: pending.fileName, sheetName: sheetNames.join(' + '), sheetNames, sheets: sheetBases, rows: first.rows, headerIndex: first.headerIndex, headers: [...headerMap.values()], recordCount: merged.records.length, costRecords: merged.records, columns, duplicates: merged.duplicates, sourceRows: sheetBases.reduce((sum, base) => sum + base.sourceRows, 0), missingCostSheets: sheetBases.filter(base => base.columns?.cost < 0).map(base => base.sheetName) }; state.costWorkbook = pending.workbook; state.costFileName = pending.fileName; state.crossAnalysis = null; state.driverPerformance = null;
+    setCostSheetModal(false); state.pendingCost = null; renderCostBaseStatus(); if (state.records.length) render(); showToast(`${sheetNames.length} aba${sheetNames.length === 1 ? '' : 's'} importada${sheetNames.length === 1 ? '' : 's'} e consolidada${sheetNames.length === 1 ? '' : 's'} sem duplicar embarques.`);
+  } catch (error) { showToast(`Não foi possível importar as abas escolhidas: ${error.message}`); }
 }
 function reopenCostSheetPicker() { if (state.costWorkbook) openCostSheetPicker(state.costWorkbook, state.costFileName); else costFileInput.click(); }
 function sortedRecords() { return [...state.records].sort((a, b) => String(a.date).localeCompare(String(b.date), 'pt-BR') || a.fleet.localeCompare(b.fleet) || a.plate.localeCompare(b.plate)); }
@@ -358,6 +391,50 @@ function renderInsights() {
   $('vacationRanking').innerHTML = rankingRows(countRanking(state.absences.filter(r => r.type === 'FÉRIAS'), 'employee'), 'FÉRIAS');
   $('fleetVehicleRankings').innerHTML = FLEET_ORDER.map(fleet => { const rank = countRanking(state.records.filter(r => r.fleet === fleet), 'plate'); return `<section class="fleet-ranking"><h4>${escapeHtml(FLEETS[fleet])}</h4><ol class="mini-ranking">${rankingRows(rank, fleet, 'Nenhum veículo utilizado')}</ol></section>`; }).join('');
 }
+const PERFORMANCE_WEIGHTS = Object.freeze({ FALTA: 5, ATESTADO: 3, NEAR_DELAY: 3, HIGH_COST: 2, LOSS: 2 });
+const PERFORMANCE_NEAR_KM = 150, PERFORMANCE_NEAR_DAYS = 1, PERFORMANCE_HIGH_COST_FACTOR = 1.25;
+function driverRouteKey(value) { return norm(value).replace(/\bCART\s*SMART\s*0*(\d+)\b/g, 'CARTSMART$1').replace(/\bRS\s*0*(\d+)\b/g, 'RS$1').replace(/[^A-Z0-9]+/g, ' ').trim(); }
+function driverPersonName(value) { const original = clean(value), withoutPrefix = original.replace(/^(?:CART\s*SMART|RS)\s*0*\d*\s*(?:[-–—:|]\s*)?/i, ''); return clean(withoutPrefix) || original; }
+function driverPersonKey(value) { return norm(driverPersonName(value)).replace(/[^A-Z0-9]+/g, ' ').trim(); }
+function median(values) { const sorted = values.filter(Number.isFinite).sort((a,b) => a - b); if (!sorted.length) return null; const middle = Math.floor(sorted.length / 2); return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2; }
+function buildDriverPerformance(analysis = state.crossAnalysis) {
+  const groups = new Map(), ensureGroup = driver => {
+    const key = driverRouteKey(driver); if (!key) return null;
+    if (!groups.has(key)) groups.set(key, { key, name: clean(driver), personKey: driverPersonKey(driver), fleets: new Set(), routeRecords: [], financialRows: [], absences: [] }); return groups.get(key);
+  };
+  state.records.forEach(record => { const group = ensureGroup(record.driver); if (!group) return; group.routeRecords.push(record); if (record.fleet) group.fleets.add(record.fleet); });
+  const matchedRows = analysis?.matchedRows || []; matchedRows.forEach(row => { const group = ensureGroup(row.driver); if (!group) return; group.financialRows.push(row); if (row.fleet) group.fleets.add(row.fleet); });
+  const byPerson = new Map(); groups.forEach(group => { if (!group.personKey) return; if (!byPerson.has(group.personKey)) byPerson.set(group.personKey, []); byPerson.get(group.personKey).push(group); });
+  let linkedAbsences = 0; state.absences.filter(item => item.type === 'FALTA' || item.type === 'ATESTADO').forEach(item => { const candidates = byPerson.get(driverPersonKey(item.employee)) || []; if (candidates.length === 1) { candidates[0].absences.push(item); linkedAbsences++; } });
+  const costPerKmByFleet = new Map(); matchedRows.forEach(row => { if (!row.fleet || !Number.isFinite(row.cost) || !Number.isFinite(row.km) || row.km <= 0) return; if (!costPerKmByFleet.has(row.fleet)) costPerKmByFleet.set(row.fleet, []); costPerKmByFleet.get(row.fleet).push(row.cost / row.km); });
+  const fleetBaselines = new Map([...costPerKmByFleet].map(([fleet, values]) => [fleet, median(values)]));
+  const drivers = [...groups.values()].map(group => {
+    const events = [], addEvent = (type, label, points, source, metric) => events.push({ type, label, points, date: source.date || source.costDate || '', shipment: source.shipment || '', route: source.route || source.city || '', fleet: source.fleet || '', metric, source });
+    group.absences.forEach(item => addEvent(item.type, ABSENCE_LABELS[item.type], PERFORMANCE_WEIGHTS[item.type], item, `${ABSENCE_LABELS[item.type]} registrada na planilha`));
+    group.financialRows.forEach(row => {
+      if (Number.isFinite(row.km) && row.km > 0 && row.km <= PERFORMANCE_NEAR_KM && Number.isFinite(row.durationDays) && row.durationDays > PERFORMANCE_NEAR_DAYS) addEvent('NEAR_DELAY', 'Rota curta demorada', PERFORMANCE_WEIGHTS.NEAR_DELAY, row, `${numberPt(row.km, 1)} km em ${durationLabel(row.durationDays)}`);
+      const baseline = fleetBaselines.get(row.fleet), costPerKm = Number.isFinite(row.cost) && Number.isFinite(row.km) && row.km > 0 ? row.cost / row.km : null, threshold = Number.isFinite(baseline) ? baseline * PERFORMANCE_HIGH_COST_FACTOR : null;
+      if (Number.isFinite(costPerKm) && Number.isFinite(threshold) && costPerKm > threshold) addEvent('HIGH_COST', 'Custo por km elevado', PERFORMANCE_WEIGHTS.HIGH_COST, row, `${money(costPerKm)}/km • limite ${money(threshold)}/km`);
+      if (Number.isFinite(row.profit) && row.profit < 0) addEvent('LOSS', 'Embarque com prejuízo', PERFORMANCE_WEIGHTS.LOSS, row, `${money(row.profit)} de resultado`);
+    });
+    const counts = { faltas: events.filter(event => event.type === 'FALTA').length, atestados: events.filter(event => event.type === 'ATESTADO').length, nearDelays: events.filter(event => event.type === 'NEAR_DELAY').length, highCosts: events.filter(event => event.type === 'HIGH_COST').length, losses: events.filter(event => event.type === 'LOSS').length };
+    const score = events.reduce((sum, event) => sum + event.points, 0), routeUses = group.routeRecords.length, scorePer10Uses = routeUses ? Math.round(score / routeUses * 1000) / 100 : score * 10;
+    return { ...group, fleets: [...group.fleets], events: events.sort((a,b) => b.points - a.points || String(a.date).localeCompare(String(b.date))), counts, score, routeUses, scorePer10Uses };
+  }).sort((a,b) => b.score - a.score || b.scorePer10Uses - a.scorePer10Uses || a.name.localeCompare(b.name, 'pt-BR'));
+  state.driverPerformance = { drivers, matchedTrips: matchedRows.length, linkedAbsences, relevantAbsences: state.absences.filter(item => item.type === 'FALTA' || item.type === 'ATESTADO').length, fleetBaselines };
+  return state.driverPerformance;
+}
+function performanceBreakdown(driver) {
+  const parts = []; if (driver.counts.faltas) parts.push(`${driver.counts.faltas} falta${driver.counts.faltas === 1 ? '' : 's'}`); if (driver.counts.atestados) parts.push(`${driver.counts.atestados} atestado${driver.counts.atestados === 1 ? '' : 's'}`); if (driver.counts.nearDelays) parts.push(`${driver.counts.nearDelays} rota${driver.counts.nearDelays === 1 ? '' : 's'} curta${driver.counts.nearDelays === 1 ? '' : 's'} demorada${driver.counts.nearDelays === 1 ? '' : 's'}`); if (driver.counts.highCosts) parts.push(`${driver.counts.highCosts} custo${driver.counts.highCosts === 1 ? '' : 's'} elevado${driver.counts.highCosts === 1 ? '' : 's'}`); if (driver.counts.losses) parts.push(`${driver.counts.losses} prejuízo${driver.counts.losses === 1 ? '' : 's'}`); return parts.join(' • ');
+}
+function renderDriverPerformance() {
+  const performance = buildDriverPerformance(state.crossAnalysis), ranked = performance.drivers.filter(driver => driver.score > 0).slice(0, 10);
+  $('performanceRanking').innerHTML = ranked.length ? ranked.map((driver, index) => `<li><button class="performance-ranking-action" data-performance-driver="${escapeHtml(driver.key)}"><span class="ranking-position">${index + 1}</span><span class="performance-driver"><strong>${escapeHtml(driver.name)}</strong><small>${escapeHtml(driver.fleets.map(fleet => FLEETS[fleet] || fleet).join(' • ') || 'Frota não informada')} • ${driver.routeUses} uso${driver.routeUses === 1 ? '' : 's'}</small><em>${escapeHtml(performanceBreakdown(driver))}</em></span><span class="performance-score"><b>${driver.score} pts</b><small>${numberPt(driver.scorePer10Uses, 1)} / 10 usos</small></span></button></li>`).join('') : '<li class="no-results">Nenhum motorista possui ocorrências suficientes para este indicador no período.</li>';
+  $('performanceRankingCount').textContent = `${ranked.length} motorista${ranked.length === 1 ? '' : 's'} com pontos de atenção`;
+  if (!state.costBase) $('performanceStatus').textContent = 'Importe a base de valores para incluir demora, custo por km e prejuízo. Por enquanto entram somente faltas e atestados vinculados.';
+  else if (!performance.matchedTrips) $('performanceStatus').textContent = 'Nenhum embarque foi cruzado com as abas financeiras selecionadas. O ranking usa somente faltas e atestados vinculados.';
+  else $('performanceStatus').textContent = `${performance.matchedTrips} viagem${performance.matchedTrips === 1 ? '' : 's'} cruzada${performance.matchedTrips === 1 ? '' : 's'} • custo elevado = acima de 25% da mediana de R$/km da mesma frota • ${performance.linkedAbsences} de ${performance.relevantAbsences} falta${performance.relevantAbsences === 1 ? '' : 's'}/atestado${performance.relevantAbsences === 1 ? '' : 's'} vinculados a motoristas.`;
+}
 function emptyFinancialRanking(message) { return `<li class="no-results">${escapeHtml(message)}</li>`; }
 function driverFleetRankingRows(rows, fleet) {
   const groups = financialGroups(rows.filter(row => row.fleet === fleet), 'driver').filter(group => group.costCount).sort((a,b) => a.averageCost - b.averageCost || b.shipments - a.shipments).slice(0, 3);
@@ -383,7 +460,7 @@ function renderFinancialRankings(analysis) {
   $('routeCostRanking').innerHTML = costly.length ? costly.map((group, index) => `<li><button class="financial-ranking-action" data-financial-kind="route" data-financial-filter="${escapeHtml(group.label)}"><span class="ranking-position">${index + 1}</span><strong title="${escapeHtml(group.label)}">${escapeHtml(group.label)}<small>${group.shipments} embarque${group.shipments === 1 ? '' : 's'} • média ${money(group.averageCost)}</small></strong><b>${money(group.cost)}</b></button></li>`).join('') : emptyFinancialRanking('Sem custos de rota cruzados.');
   $('driverCostRanking').innerHTML = driverFleetRankingRows(matched, 'COOPERRITA') + driverFleetRankingRows(matched, 'TERCEIROS FIXOS');
   const longest = matched.filter(row => Number.isFinite(row.durationDays)).sort((a,b) => b.durationDays - a.durationDays || (b.cost ?? 0) - (a.cost ?? 0)).slice(0, 5);
-  $('durationRanking').innerHTML = longest.length ? longest.map((row, index) => `<li><button class="financial-ranking-action" data-financial-kind="shipment" data-financial-filter="${escapeHtml(row.shipment)}"><span class="ranking-position">${index + 1}</span><strong>${escapeHtml(row.driver || 'Motorista não informado')}<small title="${escapeHtml(row.route)}">Emb. ${escapeHtml(row.shipment)} • ${escapeHtml(row.route || 'Rota não informada')}</small></strong><b>${durationLabel(row.durationDays)}</b></button></li>`).join('') : emptyFinancialRanking('A base escolhida não possui lead time ou retorno calculável.');
+  $('durationRanking').innerHTML = longest.length ? longest.map((row, index) => `<li><button class="financial-ranking-action" data-financial-kind="shipment" data-financial-filter="${escapeHtml(row.shipment)}"><span class="ranking-position">${index + 1}</span><strong>${escapeHtml(row.driver || 'Motorista não informado')}<small title="${escapeHtml(row.route)}">Emb. ${escapeHtml(row.shipment)} • ${escapeHtml(row.route || 'Rota não informada')}</small></strong><b>${durationLabel(row.durationDays)}</b></button></li>`).join('') : emptyFinancialRanking('As bases escolhidas não possuem lead time ou retorno calculável.');
 }
 function financialTableRow(row, detailed = false) {
   const fleet = row.fleet ? FLEETS[row.fleet] || row.fleet : row.carrier || '—', profitClass = Number.isFinite(row.profit) ? (row.profit < 0 ? 'negative-money' : 'positive-money') : '';
@@ -400,17 +477,17 @@ function renderFinancialTable() {
 }
 function renderCrossAnalysis() {
   const empty = $('financialEmpty'), content = $('financialContent'); if (!empty || !content) return;
-  if (!state.costBase) { state.crossAnalysis = null; empty.classList.remove('hidden'); content.classList.add('hidden'); $('financialEmptyTitle').textContent = 'Importe a base de valores para cruzar os embarques'; $('financialEmptyText').textContent = 'Depois de escolher a aba do mês, o sistema ligará custo, faturamento, rota, motorista e duração automaticamente.'; return; }
+  if (!state.costBase) { state.crossAnalysis = null; empty.classList.remove('hidden'); content.classList.add('hidden'); $('financialEmptyTitle').textContent = 'Importe a base de valores para cruzar os embarques'; $('financialEmptyText').textContent = 'Depois de escolher uma ou várias abas, o sistema ligará custo, faturamento, rota, motorista e duração automaticamente.'; return; }
   const analysis = buildCrossAnalysis(); empty.classList.add('hidden'); content.classList.remove('hidden');
   const matched = analysis.matchedRows, revenue = finiteSum(matched, 'revenue'), cost = finiteSum(matched, 'cost'), profit = finiteSum(matched, 'profit'), margin = revenue ? profit / revenue : null, costRows = matched.filter(row => Number.isFinite(row.cost)), averageCost = costRows.length ? cost / costRows.length : null;
-  $('financialPeriod').textContent = `${clean(state.costBase.sheetName)} • ${state.costBase.fileName}`; $('financialMatched').textContent = matched.length; $('financialMatchedSmall').textContent = `de ${analysis.routeUniqueCount} embarque${analysis.routeUniqueCount === 1 ? '' : 's'} da operação`;
+  $('financialPeriod').textContent = `${costBaseLabel()} • ${state.costBase.fileName}`; $('financialMatched').textContent = matched.length; $('financialMatchedSmall').textContent = `de ${analysis.routeUniqueCount} embarque${analysis.routeUniqueCount === 1 ? '' : 's'} da operação`;
   $('financialRevenue').textContent = money(revenue); $('financialCost').textContent = money(cost); $('financialProfit').textContent = money(profit); $('financialProfit').classList.toggle('negative-money', profit < 0); $('financialProfit').classList.toggle('positive-money', profit >= 0); $('financialMargin').textContent = percent(margin); $('financialAverageCost').textContent = moneyOrDash(averageCost);
-  const duplicateText = analysis.duplicateCosts.length ? ` ${analysis.duplicateCosts.length} embarque${analysis.duplicateCosts.length === 1 ? '' : 's'} duplicado${analysis.duplicateCosts.length === 1 ? '' : 's'} na base financeira foi considerado apenas uma vez.` : '';
+  const duplicateText = analysis.duplicateCosts.length ? ` ${analysis.duplicateCosts.length} embarque${analysis.duplicateCosts.length === 1 ? '' : 's'} duplicado${analysis.duplicateCosts.length === 1 ? '' : 's'} entre as bases financeiras foi considerado apenas uma vez.` : '', missingCostText = state.costBase.missingCostSheets?.length ? ` Atenção: ${state.costBase.missingCostSheets.join(', ')} não possui o cabeçalho CUSTO ROTA.` : '';
   const notice = $('financialNotice'); notice.classList.remove('financial-notice-ok','financial-notice-warning','financial-notice-error');
-  if (state.costBase.columns.cost < 0) { notice.classList.add('financial-notice-error'); notice.textContent = 'O cabeçalho CUSTO ROTA não foi encontrado na aba escolhida. O cruzamento aparece abaixo, mas os indicadores de gasto e lucro ficam indisponíveis.'; }
+  if (state.costBase.columns.cost < 0) { notice.classList.add('financial-notice-error'); notice.textContent = 'O cabeçalho CUSTO ROTA não foi encontrado nas abas escolhidas. O cruzamento aparece abaixo, mas os indicadores de gasto e lucro ficam indisponíveis.'; }
   else if (!analysis.routeUniqueCount) { notice.classList.add('financial-notice-warning'); notice.textContent = 'A planilha de rotas não contém números de embarque reconhecíveis para realizar o cruzamento.'; }
-  else if (!matched.length) { notice.classList.add('financial-notice-error'); notice.textContent = `Nenhum dos ${analysis.routeUniqueCount} embarques da operação foi encontrado em ${clean(state.costBase.sheetName)}. Confira se as duas planilhas são do mesmo mês.${duplicateText}`; }
-  else { const coverage = matched.length / analysis.routeUniqueCount; notice.classList.add(coverage >= .8 ? 'financial-notice-ok' : 'financial-notice-warning'); notice.textContent = `${matched.length} de ${analysis.routeUniqueCount} embarques da operação foram cruzados (${percent(coverage)}). ${analysis.routeOnlyRows.length} estão sem custo e ${analysis.costOnlyRows.length} registros da base financeira não aparecem nas rotas.${duplicateText}`; }
+  else if (!matched.length) { notice.classList.add('financial-notice-error'); notice.textContent = `Nenhum dos ${analysis.routeUniqueCount} embarques da operação foi encontrado em ${costBaseLabel()}. Confira se as planilhas selecionadas correspondem ao período da operação.${duplicateText}${missingCostText}`; }
+  else { const coverage = matched.length / analysis.routeUniqueCount; notice.classList.add(coverage >= .8 && !state.costBase.missingCostSheets?.length ? 'financial-notice-ok' : 'financial-notice-warning'); notice.textContent = `${matched.length} de ${analysis.routeUniqueCount} embarques da operação foram cruzados (${percent(coverage)}). ${analysis.routeOnlyRows.length} estão sem custo e ${analysis.costOnlyRows.length} registros da base financeira não aparecem nas rotas.${duplicateText}${missingCostText}`; }
   renderSpotFinancial(matched); renderFinancialRankings(analysis); renderFinancialTable();
 }
 function openFinancialDetail(kind = 'all', filter = '', fleet = '') {
@@ -427,7 +504,7 @@ function openFinancialDetail(kind = 'all', filter = '', fleet = '') {
   if (kind === 'profit') { title = 'Lucro por embarque'; rows.sort((a,b) => (b.profit ?? -Infinity) - (a.profit ?? -Infinity)); }
   if (kind === 'margin') { title = 'Margem dos embarques cruzados'; rows.sort((a,b) => (b.margin ?? -Infinity) - (a.margin ?? -Infinity)); }
   if (kind === 'duration') { title = 'Viagens mais demoradas'; rows = rows.filter(row => Number.isFinite(row.durationDays)).sort((a,b) => b.durationDays - a.durationDays); }
-  if (kind === 'matched') title = 'Embarques localizados nas duas planilhas'; if (kind === 'route-only') { title = 'Embarques sem custo localizado'; subtitle = 'Presentes na operação, mas ausentes na aba financeira escolhida'; } if (kind === 'cost-only') { title = 'Custos sem rota localizada'; subtitle = 'Presentes na base financeira, mas ausentes na operação importada'; }
+  if (kind === 'matched') title = 'Embarques localizados nas duas planilhas'; if (kind === 'route-only') { title = 'Embarques sem custo localizado'; subtitle = 'Presentes na operação, mas ausentes nas abas financeiras selecionadas'; } if (kind === 'cost-only') { title = 'Custos sem rota localizada'; subtitle = 'Presentes na base financeira, mas ausentes na operação importada'; }
   $('dashboard').classList.add('hidden'); $('indicatorView').classList.add('hidden'); $('financialDetailView').classList.remove('hidden'); setDetailMode(true); $('financialDetailTitle').textContent = title; $('financialDetailSubtitle').textContent = subtitle;
   const total = kind === 'cost' ? money(finiteSum(rows, 'cost')) : kind === 'revenue' ? money(finiteSum(rows, 'revenue')) : kind === 'profit' || kind === 'spot' ? money(finiteSum(rows, 'profit')) : `${rows.length} embarque${rows.length === 1 ? '' : 's'}`;
   const detailTotal = $('financialDetailTotal'); detailTotal.textContent = total; detailTotal.classList.remove('negative-money','positive-money'); if (kind === 'spot' && rows.length) detailTotal.classList.add(finiteSum(rows, 'profit') < 0 ? 'negative-money' : 'positive-money'); $('financialDetailTable').innerHTML = rows.length ? rows.map(row => financialTableRow(row, true)).join('') : '<tr><td colspan="12" class="no-results">Nenhum dado encontrado.</td></tr>'; $('financialDetailTableWrap').scrollTop = 0; $('financialDetailTableWrap').scrollLeft = 0; $('backFinancialDetail').focus?.({ preventScroll: true });
@@ -447,14 +524,28 @@ function removeVehicleRate() {
   delete state.rates[usageRateKey(record)]; persistRates(); renderCosts(); loadVehicleRateValue();
   showToast(`${record.plate} voltou ao valor padrão somente em ${displayDate(record)}.`);
 }
+function setIndicatorTableHeader(mode = 'fleet') {
+  $('indicatorTableHead').innerHTML = mode === 'performance' ? '<tr><th>Data</th><th>Critério</th><th>Motorista</th><th>Embarque</th><th>Rota</th><th>Evidência</th><th>Pontos</th></tr>' : '<tr><th>Data</th><th>Frota</th><th>Placa</th><th>Motorista</th><th>Embarque</th><th>Rota</th><th>Custo</th></tr>';
+}
+function performanceEventRow(event, driver) {
+  const fleet = event.fleet ? FLEETS[event.fleet] || event.fleet : '', source = event.source || {};
+  return `<tr><td>${escapeHtml(displayDate(source))}</td><td><span class="performance-event-tag">${escapeHtml(event.label)}</span>${fleet ? `<small class="performance-event-fleet">${escapeHtml(fleet)}</small>` : ''}</td><td>${escapeHtml(driver.name)}</td><td>${escapeHtml(event.shipment || '—')}</td><td class="route-cell">${escapeHtml(event.route || '—')}</td><td>${escapeHtml(event.metric)}</td><td><strong class="performance-event-points">+${event.points}</strong></td></tr>`;
+}
 function openDetail(kind, filter = '') {
   const absenceType = ['FOLGA','FÉRIAS','ATESTADO','FALTA'].includes(kind);
+  const performanceDriver = kind === 'PERFORMANCE' ? (state.driverPerformance || buildDriverPerformance(state.crossAnalysis)).drivers.find(driver => driver.key === filter) : null;
+  if (kind === 'PERFORMANCE' && !performanceDriver) return showToast('Não foi possível localizar os dados deste motorista.');
   $('dashboard').classList.add('hidden'); $('financialDetailView').classList.add('hidden'); $('indicatorView').classList.remove('hidden'); setDetailMode(true);
-  if (absenceType) {
+  if (kind === 'PERFORMANCE') {
+    setIndicatorTableHeader('performance'); $('indicatorTitle').textContent = `Menor desempenho — ${performanceDriver.name}`; $('indicatorSubtitle').textContent = `${performanceDriver.routeUses} utilização${performanceDriver.routeUses === 1 ? '' : 'ões'} • ${performanceBreakdown(performanceDriver)}. Revise cada ocorrência antes de qualquer decisão.`; $('indicatorTotal').textContent = `${performanceDriver.score} ponto${performanceDriver.score === 1 ? '' : 's'}`;
+    $('indicatorTable').innerHTML = performanceDriver.events.length ? performanceDriver.events.map(event => performanceEventRow(event, performanceDriver)).join('') : '<tr><td colspan="7" class="no-results">Nenhum ponto de atenção encontrado.</td></tr>';
+  } else if (absenceType) {
+    setIndicatorTableHeader();
     const items = sortedAbsences().filter(r => r.type === kind && (!filter || r.employee === filter));
     $('indicatorTitle').textContent = `${ABSENCE_LABELS[kind]}${filter ? ` — ${filter}` : ''}`; $('indicatorSubtitle').textContent = 'Funcionários e datas encontrados nas planilhas'; $('indicatorTotal').textContent = `${items.length} registro${items.length === 1 ? '' : 's'}`;
     $('indicatorTable').innerHTML = items.map(r => `<tr><td>${escapeHtml(displayDate(r))}</td><td>${escapeHtml(ABSENCE_LABELS[kind])}</td><td>${escapeHtml(r.employee)}</td><td>—</td><td>—</td><td>${escapeHtml(r.sheet)}</td><td>—</td></tr>`).join('') || '<tr><td colspan="7" class="no-results">Sem dados.</td></tr>';
   } else {
+    setIndicatorTableHeader();
     let records = kind === 'all' ? sortedRecords() : sortedRecords().filter(r => r.fleet === kind);
     if (kind === 'OVERNIGHT') records = sortedRecords().filter(isOvernight);
     if (filter) records = records.filter(r => r.plate === filter);
@@ -473,7 +564,7 @@ function render() {
   $('importStatus').textContent = `${state.loadedKeys.size} arquivo(s) • ${records.length} rotas • ${state.absences.length} afastamentos`;
   $('metricUses').textContent = records.length; $('metricHouse').textContent = countFleet(records, 'COOPERRITA'); $('metricFixed').textContent = countFleet(records, 'TERCEIROS FIXOS'); $('metricSpot').textContent = countFleet(records, 'SPOT'); $('metricLeaves').textContent = countAbsence('FOLGA'); $('metricVacation').textContent = countAbsence('FÉRIAS'); $('metricMedical').textContent = countAbsence('ATESTADO'); $('metricOvernight').textContent = records.filter(isOvernight).length;
   setOptions('dateFilter', [...new Set(records.map(r => r.date))].filter(Boolean).sort(), 'Todos os dias', value => displayDate({ date: value, sheet: value })); setOptions('fleetFilter', FLEET_ORDER.filter(fleet => records.some(r => r.fleet === fleet)), 'Todas as frotas', fleet => FLEETS[fleet]); setOptions('plateFilter', [...new Set(records.map(r => r.plate))].sort(), 'Todas as placas'); setOptions('employeeFilter', [...new Set(state.absences.map(r => r.employee))].sort(), 'Todos'); setOptions('absenceFilter', [...new Set(state.absences.map(r => r.type))].sort(), 'Todos os tipos', type => ABSENCE_LABELS[type]);
-  renderCharts(records); renderTable(); renderAbsenceTable(); renderCosts(); renderVehicleRateEditor(); renderInsights(); renderCrossAnalysis(); $('auditSummary').textContent = `${state.audit.filter(v => /concluída/.test(v)).length} arquivo(s) analisado(s).`; $('auditList').innerHTML = state.audit.slice(0, 100).map(item => `<li>${escapeHtml(item)}</li>`).join('');
+  renderCharts(records); renderTable(); renderAbsenceTable(); renderCosts(); renderVehicleRateEditor(); renderInsights(); renderCrossAnalysis(); renderDriverPerformance(); $('auditSummary').textContent = `${state.audit.filter(v => /concluída/.test(v)).length} arquivo(s) analisado(s).`; $('auditList').innerHTML = state.audit.slice(0, 100).map(item => `<li>${escapeHtml(item)}</li>`).join('');
 }
 function renderCharts(records) {
   const daily = new Map(); records.forEach(r => { const day = r.date || r.sheet; if (!daily.has(day)) daily.set(day, { COOPERRITA: 0, 'TERCEIROS FIXOS': 0, SPOT: 0 }); daily.get(day)[r.fleet]++; });
@@ -486,10 +577,10 @@ function renderCharts(records) {
 function renderTable() { const records = filteredRecords(); $('reportCount').textContent = `${records.length} rota${records.length === 1 ? '' : 's'} encontrada${records.length === 1 ? '' : 's'}`; $('usageTable').innerHTML = records.length ? records.map(r => `<tr><td>${escapeHtml(displayDate(r))}<br><small>${escapeHtml(r.sheet)}</small></td><td><span class="fleet-tag ${r.fleet === 'COOPERRITA' ? 'tag-house' : r.fleet === 'TERCEIROS FIXOS' ? 'tag-fixed' : 'tag-spot'}">${escapeHtml(FLEETS[r.fleet])}</span></td><td>${escapeHtml(r.plate)}</td><td>${escapeHtml(r.driver || '—')}</td><td>${escapeHtml(r.shipment || '—')}</td><td>${escapeHtml(r.city || '—')}${isOvernight(r) ? '<span class="overnight">Pernoite</span>' : ''}</td><td>${escapeHtml(r.source)}</td></tr>`).join('') : '<tr><td class="no-results" colspan="7">Nenhuma utilização corresponde aos filtros.</td></tr>'; }
 function renderAbsenceTable() { const records = filteredAbsences(); $('absenceCount').textContent = `${records.length} ocorrência${records.length === 1 ? '' : 's'} no período`; $('absenceTable').innerHTML = records.length ? records.map(r => `<tr><td>${escapeHtml(displayDate(r))}<br><small>${escapeHtml(r.sheet)}</small></td><td>${escapeHtml(r.employee)}</td><td><span class="absence-tag ${r.type === 'FOLGA' ? 'absence-folga' : r.type === 'FÉRIAS' ? 'absence-ferias' : r.type === 'ATESTADO' ? 'absence-atestado' : 'absence-falta'}">${escapeHtml(ABSENCE_LABELS[r.type])}</span></td><td>${escapeHtml(r.source)}</td></tr>`).join('') : '<tr><td class="no-results" colspan="4">Nenhum afastamento corresponde aos filtros.</td></tr>'; }
 function exportCsv() { const records = filteredRecords(), absences = filteredAbsences(), financial = state.crossAnalysis?.allRows || []; if (!records.length && !absences.length && !financial.length) { showToast('Não há dados para exportar.'); return; } const lines = [['Tipo','Data/Aba','Frota / Ocorrência','Placa / Funcionário','Motorista','Telefone','Embarque','Cidades / Rota','Arquivo','Faturamento','Custo rota','Lucro','Margem','KM','Duração (dias)','Situação'], ...records.map(r => ['Rota', displayDate(r), FLEETS[r.fleet], r.plate, r.driver, r.phone, r.shipment, r.city, r.source,'','','','','','','']), ...absences.map(r => ['Afastamento', displayDate(r), ABSENCE_LABELS[r.type], r.employee, '', '', '', '', r.source,'','','','','','','']), ...financial.map(r => ['Financeiro', displayIsoDate(r.date || r.costDate), r.fleet ? FLEETS[r.fleet] : r.carrier, r.plate, r.driver, '', r.shipment, r.route, state.costBase?.fileName || '', r.revenue ?? '', r.cost ?? '', r.profit ?? '', Number.isFinite(r.margin) ? r.margin : '', r.km ?? '', r.durationDays ?? '', financialStatusLabel(r.status)])]; const csv = lines.map(row => row.map(value => `"${String(value ?? '').replaceAll('"', '""')}"`).join(';')).join('\r\n'); const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })); const link = document.createElement('a'); link.href = url; link.download = 'relatorio-frota-completo.csv'; link.click(); URL.revokeObjectURL(url); }
-function clearAll() { state.records = []; state.absences = []; state.audit = []; state.loadedKeys.clear(); state.crossAnalysis = null; $('dashboard').classList.add('hidden'); $('indicatorView').classList.add('hidden'); $('financialDetailView').classList.add('hidden'); setDetailMode(false); $('clearData').hidden = true; $('importStatus').textContent = 'Nenhuma planilha importada'; fileInput.value = ''; folderInput.value = ''; showToast('Dados removidos do painel.'); }
+function clearAll() { state.records = []; state.absences = []; state.audit = []; state.loadedKeys.clear(); state.crossAnalysis = null; state.driverPerformance = null; $('dashboard').classList.add('hidden'); $('indicatorView').classList.add('hidden'); $('financialDetailView').classList.add('hidden'); setDetailMode(false); $('clearData').hidden = true; $('importStatus').textContent = 'Nenhuma planilha importada'; fileInput.value = ''; folderInput.value = ''; showToast('Dados removidos do painel.'); }
 
 $('chooseFiles').addEventListener('click', () => fileInput.click()); fileInput.addEventListener('change', e => readFiles([...e.target.files])); folderInput.addEventListener('change', e => readFiles([...e.target.files]));
-$('chooseCostFile').addEventListener('click', () => { costFileInput.value = ''; costFileInput.click(); }); costFileInput.addEventListener('change', e => prepareCostFile(e.target.files?.[0])); $('confirmCostSheet').addEventListener('click', confirmCostSheetImport); $('cancelCostSheet').addEventListener('click', closeCostSheetPicker); $('changeCostSheet').addEventListener('click', reopenCostSheetPicker); $('costSheetModal').addEventListener('click', e => { if (e.target === $('costSheetModal')) closeCostSheetPicker(); });
+$('chooseCostFile').addEventListener('click', () => { costFileInput.value = ''; costFileInput.click(); }); costFileInput.addEventListener('change', e => prepareCostFile(e.target.files?.[0])); $('confirmCostSheet').addEventListener('click', confirmCostSheetImport); $('cancelCostSheet').addEventListener('click', closeCostSheetPicker); $('changeCostSheet').addEventListener('click', reopenCostSheetPicker); $('costSelectAll').addEventListener('click', () => selectPendingCostSheets(state.pendingCost?.names.map((_, index) => index) || [])); $('costClearSelection').addEventListener('click', () => selectPendingCostSheets([])); $('costSheetOptions').addEventListener('change', e => { const input = e.target.closest?.('[data-cost-sheet-index]'); if (input) updatePendingCostSheet(Number(input.dataset.costSheetIndex), Boolean(input.checked)); }); $('costSheetModal').addEventListener('click', e => { if (e.target === $('costSheetModal')) closeCostSheetPicker(); });
 dropzone.addEventListener('click', e => { if (!e.target.closest('button')) fileInput.click(); }); dropzone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
 ['dragenter', 'dragover'].forEach(event => dropzone.addEventListener(event, e => { e.preventDefault(); dropzone.classList.add('dragging'); })); ['dragleave', 'drop'].forEach(event => dropzone.addEventListener(event, e => { e.preventDefault(); dropzone.classList.remove('dragging'); })); dropzone.addEventListener('drop', e => readFiles([...e.dataTransfer.files].filter(f => /\.(xlsx|xlsm|xlsb|xls|csv)$/i.test(f.name))));
 ['searchInput', 'dateFilter', 'fleetFilter', 'plateFilter'].forEach(id => $(id).addEventListener(id === 'searchInput' ? 'input' : 'change', renderTable)); ['employeeFilter', 'absenceFilter'].forEach(id => $(id).addEventListener('change', renderAbsenceTable)); $('clearData').addEventListener('click', clearAll); $('exportCsv').addEventListener('click', exportCsv);
@@ -497,5 +588,6 @@ $('financialSearch').addEventListener('input', renderFinancialTable); $('financi
 $('saveRate').addEventListener('click', saveRate); $('vehicleRateFleet').addEventListener('change', renderVehicleRateEditor); $('vehicleRatePlate').addEventListener('change', renderVehicleRateUsages); $('vehicleRateUsage').addEventListener('change', loadVehicleRateValue); $('saveVehicleRate').addEventListener('click', saveVehicleRate); $('removeVehicleRate').addEventListener('click', removeVehicleRate); document.querySelectorAll('[data-detail]').forEach(el => el.addEventListener('click', () => openDetail(el.dataset.detail))); $('backDashboard').addEventListener('click', closeDetail);
 document.addEventListener('click', e => { const item = e.target.closest('.cost-result'); if (item) openDetail(item.dataset.detail); });
 document.addEventListener('click', e => { const item = e.target.closest('.ranking-action'); if (item) openDetail(item.dataset.rankingKind, item.dataset.rankingFilter); });
+document.addEventListener('click', e => { const item = e.target.closest('[data-performance-driver]'); if (item) openDetail('PERFORMANCE', item.dataset.performanceDriver); });
 document.addEventListener('click', e => { const item = e.target.closest('[data-financial-kind]'); if (item) openFinancialDetail(item.dataset.financialKind, item.dataset.financialFilter || '', item.dataset.financialFleet || ''); });
 document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (!$('costSheetModal').classList.contains('hidden')) closeCostSheetPicker(); else if (!$('financialDetailView').classList.contains('hidden')) closeFinancialDetail(); else if (!$('indicatorView').classList.contains('hidden')) closeDetail(); });

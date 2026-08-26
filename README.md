@@ -17,15 +17,15 @@ Cada nova seleção de arquivos substitui integralmente a importação anterior.
 
 1. Na seção **Base de valores dos embarques**, clique em **Selecionar base de valores**.
 2. Escolha o arquivo Excel que contém as bases mensais.
-3. O sistema identifica as abas mensais completas e pergunta **Qual aba você quer importar?**.
-4. Selecione o mês e clique em **Importar aba escolhida**.
+3. O sistema identifica as abas mensais completas e pergunta **Quais abas você quer importar?**.
+4. Marque uma ou várias abas e clique em **Importar abas selecionadas**.
 5. Importe também a planilha operacional do mesmo mês na seção **Importar planilhas**.
 
-Somente a aba selecionada é carregada. Uma nova escolha substitui apenas a base de valores anterior e não modifica as planilhas de rotas, os indicadores ou os valores manuais já existentes no painel.
+As abas selecionadas são consolidadas em uma única base. Uma nova escolha substitui apenas a base de valores anterior e não modifica as planilhas de rotas, os indicadores ou os valores manuais já existentes no painel.
 
 No arquivo de referência foram reconhecidas as bases de janeiro a julho. O detector procura os cabeçalhos `EMBARQUE`, `DATA SAIDA` e `TOTAL FATURAMENTO`, separando as bases mensais das abas auxiliares, painéis e bases de despesas. Depois, localiza dinamicamente `CUSTO ROTA`, `ROTA`, `RETORNO ROTA`, `LEAD TIME DA ROTA`, `KM ROTA` e os demais campos, mesmo quando mudam de coluna.
 
-O vínculo entre as planilhas é feito pelo número do embarque. Para evitar totais incorretos, um embarque duplicado na base financeira é considerado apenas uma vez e fica sinalizado. A conferência também separa embarques **cruzados**, **sem custo** e **sem rota**. Se as planilhas forem de meses diferentes, o painel informa que nenhuma correspondência foi encontrada em vez de misturar os valores.
+O vínculo entre as planilhas é feito pelo número do embarque. Para evitar totais incorretos, um embarque repetido na mesma aba ou entre várias abas financeiras é considerado apenas uma vez e fica sinalizado. O sistema preserva o registro mais completo. A conferência também separa embarques **cruzados**, **sem custo** e **sem rota**. Se as planilhas forem de meses diferentes, o painel informa que nenhuma correspondência foi encontrada em vez de misturar os valores.
 
 ## O que o sistema identifica
 
@@ -52,13 +52,17 @@ Uma utilização é contabilizada quando há uma placa de veículo e também uma
 - Rankings dos veículos mais usados separados por carros da casa, terceiros fixos e SPOT
 - Gráfico diário responsivo com rolagem interna, sem ultrapassar a largura da tela
 - Importador separado para a base de valores dos embarques
-- Detecção automática das abas mensais completas e escolha obrigatória do mês antes da importação
+- Detecção automática das abas mensais completas, com seleção de uma ou várias abas antes da importação
+- Consolidação das abas financeiras sem duplicar o custo de um embarque repetido
 - Cruzamento automático entre a planilha operacional e a base financeira pelo número do embarque
 - Total de faturamento, custo da rota, lucro, margem e custo médio somente dos embarques encontrados nas duas bases
 - Lucro calculado como `TOTAL FATURAMENTO - CUSTO ROTA`
 - Resultado exclusivo dos SPOTs com faturamento, custo, lucro ou prejuízo, margem e quantidade de embarques negativos
 - Detalhamento clicável dos SPOTs, ordenando primeiro os embarques que deram maior prejuízo
 - Top 3 para bonificação separado entre carros da casa e terceiros fixos, usando como critério o menor custo médio por embarque
+- Ranking clicável de motoristas com menor desempenho, somando faltas, atestados, rotas de até 150 km que passaram de um dia, custo por km acima de 25% da mediana da mesma frota e embarques com prejuízo
+- Pontuação visível e auditável: falta `+5`, atestado `+3`, rota curta demorada `+3`, custo por km elevado `+2` e prejuízo `+2`
+- Tela fixa com todas as ocorrências que formaram a pontuação; o indicador exige revisão humana antes de qualquer decisão
 - Ranking das viagens mais demoradas usando `LEAD TIME DA ROTA` ou, quando necessário, a diferença entre saída e retorno
 - Tabela completa com busca e filtros para embarques cruzados, sem custo e sem rota
 - Detalhamento financeiro em tela fixa, com cabeçalho visível e rolagem somente dentro dos dados

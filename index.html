@@ -35,6 +35,9 @@
     <style>
       .spot-result-panel{margin-bottom:13px;padding:17px;border:1px solid #d7e6ec;border-left:5px solid #92a5ae;border-radius:13px;background:#fff;box-shadow:0 4px 14px rgba(25,57,80,.035)}.spot-result-profit{border-left-color:#16a98c;background:linear-gradient(135deg,#fff,#f0fbf7)}.spot-result-loss{border-left-color:#c25458;background:linear-gradient(135deg,#fff,#fff5f5)}.spot-result-heading{display:flex;align-items:start;justify-content:space-between;gap:15px}.spot-result-heading .eyebrow{margin-bottom:5px}.spot-result-heading h3{margin:0;color:#0d2b45;font-size:16px}.spot-result-heading p:not(.eyebrow){margin:4px 0 0;color:#6b7b89;font-size:10px}.spot-result-badge{flex:0 0 auto;padding:7px 10px;border-radius:999px;background:#edf2f4;color:#657680;font-size:9px;font-weight:900}.spot-result-profit .spot-result-badge{background:#dff6ee;color:#10715c}.spot-result-loss .spot-result-badge{background:#fde3e5;color:#a53742}.spot-result-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:9px;margin-top:13px}.spot-result-grid>div{min-width:0;padding:11px;border:1px solid #e1eaee;border-radius:9px;background:rgba(255,255,255,.84)}.spot-result-grid span{display:block;color:#6b7b89;font-size:9px;font-weight:750;text-transform:uppercase}.spot-result-grid strong{display:block;margin-top:5px;color:#0d2b45;font-size:15px;overflow-wrap:anywhere}.spot-result-open{margin-top:12px}.bonus-ranking-heading{display:flex;align-items:start;justify-content:space-between;gap:10px}.bonus-ranking-heading>span{padding:5px 8px;border-radius:999px;background:#fff5dc;color:#906100;font-size:8px;font-weight:900}.bonus-ranking-heading p{margin-top:4px}@media(max-width:950px){.spot-result-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:560px){.spot-result-heading{display:block}.spot-result-badge{display:inline-block;margin-top:9px}.spot-result-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.spot-result-open{width:100%}}@media(max-width:390px){.spot-result-grid{grid-template-columns:1fr}}
     </style>
+    <style>
+      .cost-sheet-fieldset{margin:0;padding:0;border:0}.cost-sheet-fieldset legend{margin-bottom:7px;color:#526b79;font-size:11px;font-weight:800}.cost-sheet-tools{display:flex;align-items:center;gap:8px;margin-bottom:9px}.cost-sheet-tools span{margin-right:auto;color:#1688cf;font-size:11px;font-weight:800}.cost-sheet-tools button{border:0;background:#edf4f7;color:#0d2b45;border-radius:7px;padding:7px 9px;font:700 10px inherit;cursor:pointer}.cost-sheet-options{max-height:270px;overflow:auto;border:1px solid #bdd3dc;border-radius:10px;background:#f8fbfc;padding:7px;display:grid;gap:6px}.cost-sheet-option{display:flex!important;flex-direction:row!important;align-items:center;gap:10px!important;padding:10px;border:1px solid transparent;border-radius:8px;background:#fff;cursor:pointer}.cost-sheet-option:hover{border-color:#9bc8dc}.cost-sheet-option:has(input:checked){border-color:#43a8d6;background:#eff9fd}.cost-sheet-option input{width:17px;height:17px;accent-color:#1688cf}.cost-sheet-option span{min-width:0}.cost-sheet-option strong,.cost-sheet-option small{display:block}.cost-sheet-option strong{color:#0d2b45;font-size:12px}.cost-sheet-option small{margin-top:2px;color:#7b8b95;font-size:9px}.performance-analysis{margin-top:18px;padding:20px;border:1px solid #e2d5b5;border-radius:18px;background:linear-gradient(145deg,#fffdf7,#f8fbfc)}.performance-heading{display:flex;justify-content:space-between;align-items:start;gap:16px}.performance-heading h2{margin:0;color:#0d2b45;font-size:21px}.performance-heading p:not(.eyebrow){margin:5px 0 0;color:#6b7b89;font-size:12px}.performance-review-badge{flex:0 0 auto;border-radius:999px;background:#fff0c9;color:#805800;padding:7px 10px;font-size:9px;font-weight:900}.performance-method{display:flex;gap:7px;flex-wrap:wrap;margin:14px 0 8px}.performance-method span{padding:6px 8px;border-radius:999px;background:#fff;border:1px solid #e7dec8;color:#69583a;font-size:9px;font-weight:800}.performance-status{margin:0 0 12px!important;padding:10px 12px;border-radius:9px;background:#fff;color:#6b7b89!important;font-size:10px!important;line-height:1.45}.performance-card{padding:0;overflow:hidden}.performance-card-heading{display:flex;justify-content:space-between;gap:12px;padding:15px 17px;border-bottom:1px solid #edf2f4}.performance-card-heading h3{margin:0}.performance-card-heading span{color:#7b8b95;font-size:10px}.performance-ranking{list-style:none;margin:0;padding:0}.performance-ranking li+li{border-top:1px solid #edf2f4}.performance-ranking-action{width:100%;display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center;border:0;background:#fff;color:#152536;padding:12px 17px;text-align:left;cursor:pointer}.performance-ranking-action:hover{background:#f9fcfd}.performance-driver{min-width:0}.performance-driver strong,.performance-driver small,.performance-driver em{display:block}.performance-driver strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}.performance-driver small{margin-top:3px;color:#7b8b95;font-size:9px}.performance-driver em{margin-top:5px;color:#8a5c16;font-size:10px;font-style:normal;line-height:1.35}.performance-score{text-align:right}.performance-score b,.performance-score small{display:block;white-space:nowrap}.performance-score b{color:#a34a3e;font-size:13px}.performance-score small{margin-top:3px;color:#7b8b95;font-size:9px}.performance-event-tag{display:block;width:max-content;border-radius:999px;background:#fff0d5;color:#8b5e16;padding:4px 7px;font-size:9px;font-weight:850}.performance-event-fleet{display:block;margin-top:4px;color:#7b8b95;font-size:9px}.performance-event-points{color:#a34a3e}@media(max-width:620px){.performance-analysis{padding:13px}.performance-heading{display:block}.performance-review-badge{display:inline-block;margin-top:9px}.performance-card-heading{display:block}.performance-card-heading span{display:block;margin-top:4px}.performance-ranking-action{grid-template-columns:25px minmax(0,1fr)}.performance-score{grid-column:2;text-align:left;display:flex;gap:8px;align-items:center}.performance-score small{margin:0}.cost-sheet-tools{flex-wrap:wrap}.cost-sheet-tools span{width:100%}}
+    </style>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   </head>
   <body>
@@ -81,16 +84,16 @@
         <section class="value-import-panel" aria-label="Importar base de valores dos embarques">
           <div class="value-import-main">
             <div class="value-import-icon" aria-hidden="true">R$</div>
-            <div class="value-import-copy"><h2>Base de valores dos embarques</h2><p>Importe a planilha de custos. O sistema localizará as bases mensais e perguntará qual aba deve ser carregada.</p></div>
+            <div class="value-import-copy"><h2>Base de valores dos embarques</h2><p>Importe a planilha de custos. O sistema localizará as bases mensais e permitirá consolidar uma ou várias abas.</p></div>
             <div class="value-import-actions">
               <input id="costFileInput" type="file" accept=".xlsx,.xls,.xlsm,.xlsb" hidden />
               <button class="primary-btn" id="chooseCostFile" type="button">Selecionar base de valores</button>
-              <button class="secondary-btn" id="changeCostSheet" type="button" hidden>Escolher outra aba</button>
+              <button class="secondary-btn" id="changeCostSheet" type="button" hidden>Alterar abas</button>
               <span class="value-import-status" id="costImportStatus">Nenhuma base de valores importada</span>
             </div>
           </div>
           <div class="cost-import-summary hidden" id="costImportSummary"><span>BASE PRONTA</span><strong id="costBaseSheet"></strong><small id="costBaseDetails"></small></div>
-          <p class="value-import-footnote">Esta importação é separada da planilha de rotas. Depois que as duas bases estiverem carregadas, o sistema cruzará os embarques sem alterar os indicadores atuais da frota.</p>
+          <p class="value-import-footnote">Esta importação é separada da planilha de rotas. As abas marcadas são unidas por embarque, sem duplicar valores e sem alterar os indicadores atuais da frota.</p>
         </section>
 
         <section id="dashboard" class="dashboard hidden" aria-live="polite">
@@ -164,8 +167,8 @@
           </section>
 
           <section id="financialAnalysis" class="financial-analysis" aria-labelledby="financialAnalysisTitle">
-            <div class="financial-section-heading"><div><p class="eyebrow">CRUZAMENTO INTELIGENTE</p><h2 id="financialAnalysisTitle">Custos, lucro e duração por embarque</h2><p>O embarque liga a planilha de rotas à aba financeira escolhida, sem duplicar custos.</p></div><span id="financialPeriod" class="financial-period">Aguardando base financeira</span></div>
-            <div id="financialEmpty" class="financial-empty"><strong id="financialEmptyTitle">Importe a base de valores para cruzar os embarques</strong><p id="financialEmptyText">Depois de escolher a aba do mês, o sistema ligará custo, faturamento, rota, motorista e duração automaticamente.</p></div>
+            <div class="financial-section-heading"><div><p class="eyebrow">CRUZAMENTO INTELIGENTE</p><h2 id="financialAnalysisTitle">Custos, lucro e duração por embarque</h2><p>O embarque liga a planilha de rotas às abas financeiras selecionadas, sem duplicar custos.</p></div><span id="financialPeriod" class="financial-period">Aguardando base financeira</span></div>
+            <div id="financialEmpty" class="financial-empty"><strong id="financialEmptyTitle">Importe a base de valores para cruzar os embarques</strong><p id="financialEmptyText">Depois de escolher uma ou várias abas, o sistema ligará custo, faturamento, rota, motorista e duração automaticamente.</p></div>
             <div id="financialContent" class="hidden">
               <div id="financialNotice" class="financial-notice"></div>
               <article id="spotResultPanel" class="spot-result-panel spot-result-neutral">
@@ -199,6 +202,13 @@
                 <div class="table-wrap"><table><thead><tr><th>Data</th><th>Embarque</th><th>Motorista</th><th>Rota</th><th>Frota</th><th>Faturamento</th><th>Custo rota</th><th>Lucro</th><th>Duração</th><th>Situação</th></tr></thead><tbody id="financialTable"></tbody></table></div>
               </article>
             </div>
+          </section>
+
+          <section id="performanceAnalysis" class="performance-analysis" aria-labelledby="performanceTitle">
+            <div class="performance-heading"><div><p class="eyebrow">ATENÇÃO OPERACIONAL</p><h2 id="performanceTitle">Motoristas com menor desempenho</h2><p>Soma ocorrências objetivas do período e abre cada evidência para conferência.</p></div><span class="performance-review-badge">REVISÃO HUMANA</span></div>
+            <div class="performance-method" aria-label="Regras da pontuação"><span>Falta +5</span><span>Atestado +3</span><span>Rota até 150 km acima de 1 dia +3</span><span>Custo/km 25% acima da mediana da frota +2</span><span>Prejuízo +2</span></div>
+            <p id="performanceStatus" class="performance-status"></p>
+            <article class="card performance-card"><div class="performance-card-heading"><h3>Ranking de pontos de atenção</h3><span id="performanceRankingCount">0 motoristas com pontos de atenção</span></div><ol id="performanceRanking" class="performance-ranking"></ol></article>
           </section>
 
           <article class="card report-card">
@@ -240,7 +250,7 @@
             <details><summary>Ver abas processadas e avisos</summary><ul id="auditList"></ul></details>
           </article>
         </section>
-        <section id="indicatorView" class="card indicator-view hidden" role="dialog" aria-modal="true" aria-labelledby="indicatorTitle"><button class="secondary-btn" id="backDashboard" type="button">← Voltar ao painel</button><div class="indicator-heading"><div><p class="eyebrow">DETALHAMENTO DO INDICADOR</p><h2 id="indicatorTitle">Detalhamento</h2><p id="indicatorSubtitle"></p></div><strong id="indicatorTotal"></strong></div><div class="table-wrap" id="indicatorTableWrap"><table><thead><tr><th>Data</th><th>Frota</th><th>Placa</th><th>Motorista</th><th>Embarque</th><th>Rota</th><th>Custo</th></tr></thead><tbody id="indicatorTable"></tbody></table></div></section>
+        <section id="indicatorView" class="card indicator-view hidden" role="dialog" aria-modal="true" aria-labelledby="indicatorTitle"><button class="secondary-btn" id="backDashboard" type="button">← Voltar ao painel</button><div class="indicator-heading"><div><p class="eyebrow">DETALHAMENTO DO INDICADOR</p><h2 id="indicatorTitle">Detalhamento</h2><p id="indicatorSubtitle"></p></div><strong id="indicatorTotal"></strong></div><div class="table-wrap" id="indicatorTableWrap"><table><thead id="indicatorTableHead"><tr><th>Data</th><th>Frota</th><th>Placa</th><th>Motorista</th><th>Embarque</th><th>Rota</th><th>Custo</th></tr></thead><tbody id="indicatorTable"></tbody></table></div></section>
         <section id="financialDetailView" class="card indicator-view financial-detail-view hidden" role="dialog" aria-modal="true" aria-labelledby="financialDetailTitle"><button class="secondary-btn" id="backFinancialDetail" type="button">← Voltar à análise</button><div class="indicator-heading"><div><p class="eyebrow">DETALHAMENTO FINANCEIRO</p><h2 id="financialDetailTitle">Embarques</h2><p id="financialDetailSubtitle"></p></div><strong id="financialDetailTotal"></strong></div><div class="table-wrap" id="financialDetailTableWrap"><table><thead><tr><th>Data</th><th>Embarque</th><th>Motorista</th><th>Rota</th><th>Frota</th><th>Placa</th><th>Faturamento</th><th>Custo rota</th><th>Lucro</th><th>KM</th><th>Duração</th><th>Situação</th></tr></thead><tbody id="financialDetailTable"></tbody></table></div></section>
       </main>
       <footer>Frota Insight • Os dados são processados somente no seu navegador.</footer>
@@ -248,12 +258,12 @@
     <div id="costSheetModal" class="cost-sheet-modal hidden" role="dialog" aria-modal="true" aria-labelledby="costSheetTitle">
       <div class="cost-sheet-dialog">
         <p class="eyebrow">BASE DE VALORES DOS EMBARQUES</p>
-        <h2 id="costSheetTitle">Qual aba você quer importar?</h2>
+        <h2 id="costSheetTitle">Quais abas você quer importar?</h2>
         <p class="cost-sheet-file" id="costSheetFileName"></p>
         <p class="cost-sheet-help" id="costSheetHelp"></p>
-        <label><span>Aba do mês</span><select id="costSheetSelect"></select></label>
-        <p class="cost-sheet-note">Somente a aba selecionada será carregada. A base mensal anterior será substituída, sem mexer nos dados e indicadores da frota.</p>
-        <div class="cost-sheet-buttons"><button class="secondary-btn" id="cancelCostSheet" type="button">Cancelar</button><button class="primary-btn" id="confirmCostSheet" type="button">Importar aba escolhida</button></div>
+        <fieldset class="cost-sheet-fieldset"><legend>Abas do mês</legend><div class="cost-sheet-tools"><span id="costSelectedCount">Nenhuma aba selecionada</span><button id="costSelectAll" type="button">Marcar todas</button><button id="costClearSelection" type="button">Limpar</button></div><div id="costSheetOptions" class="cost-sheet-options" tabindex="0"></div></fieldset>
+        <p class="cost-sheet-note">As abas marcadas serão consolidadas. Se o mesmo embarque aparecer mais de uma vez, somente o registro mais completo entra no total. A base financeira anterior será substituída sem mexer na frota.</p>
+        <div class="cost-sheet-buttons"><button class="secondary-btn" id="cancelCostSheet" type="button">Cancelar</button><button class="primary-btn" id="confirmCostSheet" type="button">Importar abas selecionadas</button></div>
       </div>
     </div>
     <div id="toast" class="toast" role="status"></div>
