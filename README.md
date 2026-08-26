@@ -54,7 +54,7 @@ Uma utilização é contabilizada quando há uma placa de veículo e também uma
 - Cruzamento automático entre a planilha operacional e a base financeira pelo número do embarque
 - Total de faturamento, custo da rota, lucro, margem e custo médio somente dos embarques encontrados nas duas bases
 - Lucro calculado como `TOTAL FATURAMENTO - CUSTO ROTA`
-- Rankings clicáveis das rotas mais lucrativas, rotas de maior custo e motoristas com menor custo médio por embarque
+- Rankings clicáveis das rotas mais lucrativas e de maior custo, além dos motoristas com menor custo médio separados entre carros da casa e terceiros fixos (sem misturar SPOT)
 - Ranking das viagens mais demoradas usando `LEAD TIME DA ROTA` ou, quando necessário, a diferença entre saída e retorno
 - Tabela completa com busca e filtros para embarques cruzados, sem custo e sem rota
 - Detalhamento financeiro em tela fixa, com cabeçalho visível e rolagem somente dentro dos dados

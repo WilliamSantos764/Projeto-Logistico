@@ -350,14 +350,20 @@ function renderInsights() {
   $('fleetVehicleRankings').innerHTML = FLEET_ORDER.map(fleet => { const rank = countRanking(state.records.filter(r => r.fleet === fleet), 'plate'); return `<section class="fleet-ranking"><h4>${escapeHtml(FLEETS[fleet])}</h4><ol class="mini-ranking">${rankingRows(rank, fleet, 'Nenhum veículo utilizado')}</ol></section>`; }).join('');
 }
 function emptyFinancialRanking(message) { return `<li class="no-results">${escapeHtml(message)}</li>`; }
+function driverFleetRankingRows(rows, fleet) {
+  const groups = financialGroups(rows.filter(row => row.fleet === fleet), 'driver').filter(group => group.costCount).sort((a,b) => a.averageCost - b.averageCost || b.shipments - a.shipments).slice(0, 3);
+  const tagClass = fleet === 'COOPERRITA' ? 'tag-house' : 'tag-fixed';
+  const heading = `<li class="financial-ranking-category"><span class="fleet-tag ${tagClass}">${escapeHtml(FLEETS[fleet])}</span><small>menor média por embarque</small></li>`;
+  const ranking = groups.length ? groups.map((group, index) => `<li><button class="financial-ranking-action" data-financial-kind="driver" data-financial-filter="${escapeHtml(group.label)}" data-financial-fleet="${escapeHtml(fleet)}"><span class="ranking-position">${index + 1}</span><strong>${escapeHtml(group.label)}<small>${group.costCount} embarque${group.costCount === 1 ? '' : 's'} • total ${money(group.cost)}</small></strong><b>${money(group.averageCost)}<small>/ embarque</small></b></button></li>`).join('') : `<li class="financial-ranking-empty">Nenhum motorista de ${escapeHtml(FLEETS[fleet].toLowerCase())} com custo cruzado.</li>`;
+  return heading + ranking;
+}
 function renderFinancialRankings(analysis) {
-  const matched = analysis.matchedRows, routes = financialGroups(matched, 'route'), drivers = financialGroups(matched, 'driver');
+  const matched = analysis.matchedRows, routes = financialGroups(matched, 'route');
   const profitable = routes.filter(group => group.profitCount).sort((a,b) => b.profit - a.profit || b.margin - a.margin).slice(0, 5);
   $('routeProfitRanking').innerHTML = profitable.length ? profitable.map((group, index) => `<li><button class="financial-ranking-action" data-financial-kind="route" data-financial-filter="${escapeHtml(group.label)}"><span class="ranking-position">${index + 1}</span><strong title="${escapeHtml(group.label)}">${escapeHtml(group.label)}<small>${group.shipments} embarque${group.shipments === 1 ? '' : 's'} • margem ${percent(group.margin)}</small></strong><b class="${group.profit < 0 ? 'negative-money' : 'positive-money'}">${money(group.profit)}</b></button></li>`).join('') : emptyFinancialRanking('Sem lucro calculável nas rotas cruzadas.');
   const costly = routes.filter(group => group.costCount).sort((a,b) => b.cost - a.cost).slice(0, 5);
   $('routeCostRanking').innerHTML = costly.length ? costly.map((group, index) => `<li><button class="financial-ranking-action" data-financial-kind="route" data-financial-filter="${escapeHtml(group.label)}"><span class="ranking-position">${index + 1}</span><strong title="${escapeHtml(group.label)}">${escapeHtml(group.label)}<small>${group.shipments} embarque${group.shipments === 1 ? '' : 's'} • média ${money(group.averageCost)}</small></strong><b>${money(group.cost)}</b></button></li>`).join('') : emptyFinancialRanking('Sem custos de rota cruzados.');
-  const efficientDrivers = drivers.filter(group => group.costCount).sort((a,b) => a.averageCost - b.averageCost || b.shipments - a.shipments).slice(0, 5);
-  $('driverCostRanking').innerHTML = efficientDrivers.length ? efficientDrivers.map((group, index) => `<li><button class="financial-ranking-action" data-financial-kind="driver" data-financial-filter="${escapeHtml(group.label)}"><span class="ranking-position">${index + 1}</span><strong>${escapeHtml(group.label)}<small>${group.costCount} embarque${group.costCount === 1 ? '' : 's'} • total ${money(group.cost)}</small></strong><b>${money(group.averageCost)}<small>/ embarque</small></b></button></li>`).join('') : emptyFinancialRanking('Nenhum motorista pôde ser ligado aos custos.');
+  $('driverCostRanking').innerHTML = driverFleetRankingRows(matched, 'COOPERRITA') + driverFleetRankingRows(matched, 'TERCEIROS FIXOS');
   const longest = matched.filter(row => Number.isFinite(row.durationDays)).sort((a,b) => b.durationDays - a.durationDays || (b.cost ?? 0) - (a.cost ?? 0)).slice(0, 5);
   $('durationRanking').innerHTML = longest.length ? longest.map((row, index) => `<li><button class="financial-ranking-action" data-financial-kind="shipment" data-financial-filter="${escapeHtml(row.shipment)}"><span class="ranking-position">${index + 1}</span><strong>${escapeHtml(row.driver || 'Motorista não informado')}<small title="${escapeHtml(row.route)}">Emb. ${escapeHtml(row.shipment)} • ${escapeHtml(row.route || 'Rota não informada')}</small></strong><b>${durationLabel(row.durationDays)}</b></button></li>`).join('') : emptyFinancialRanking('A base escolhida não possui lead time ou retorno calculável.');
 }
@@ -389,13 +395,13 @@ function renderCrossAnalysis() {
   else { const coverage = matched.length / analysis.routeUniqueCount; notice.classList.add(coverage >= .8 ? 'financial-notice-ok' : 'financial-notice-warning'); notice.textContent = `${matched.length} de ${analysis.routeUniqueCount} embarques da operação foram cruzados (${percent(coverage)}). ${analysis.routeOnlyRows.length} estão sem custo e ${analysis.costOnlyRows.length} registros da base financeira não aparecem nas rotas.${duplicateText}`; }
   renderFinancialRankings(analysis); renderFinancialTable();
 }
-function openFinancialDetail(kind = 'all', filter = '') {
+function openFinancialDetail(kind = 'all', filter = '', fleet = '') {
   const analysis = state.crossAnalysis || buildCrossAnalysis(); if (!analysis) return showToast('Importe as duas planilhas antes de abrir a análise financeira.');
   let rows = [...analysis.allRows], title = 'Todos os embarques', subtitle = 'Conferência entre a operação e a base de valores';
   if (['matched','revenue','cost','profit','margin','duration'].includes(kind)) rows = [...analysis.matchedRows];
   if (kind === 'route-only') rows = [...analysis.routeOnlyRows]; if (kind === 'cost-only') rows = [...analysis.costOnlyRows];
   if (kind === 'route') { rows = analysis.matchedRows.filter(row => norm(row.route) === norm(filter)); title = `Rota — ${filter}`; subtitle = 'Embarques, custos, faturamento e duração desta rota'; }
-  if (kind === 'driver') { rows = analysis.matchedRows.filter(row => norm(row.driver) === norm(filter)); title = `Motorista — ${filter}`; subtitle = 'Embarques e resultados ligados a este motorista'; }
+  if (kind === 'driver') { rows = analysis.matchedRows.filter(row => norm(row.driver) === norm(filter) && (!fleet || row.fleet === fleet)); title = `${fleet ? `${FLEETS[fleet]} — ` : ''}${filter}`; subtitle = 'Embarques e resultados ligados a este motorista'; }
   if (kind === 'shipment') { rows = analysis.allRows.filter(row => row.shipment === clean(filter)); title = `Embarque ${filter}`; subtitle = 'Linha financeira e operação encontradas para este embarque'; }
   if (kind === 'revenue') { title = 'Faturamento dos embarques cruzados'; rows.sort((a,b) => (b.revenue ?? -Infinity) - (a.revenue ?? -Infinity)); }
   if (kind === 'cost') { title = 'Custo das rotas cruzadas'; rows.sort((a,b) => (b.cost ?? -Infinity) - (a.cost ?? -Infinity)); }
@@ -472,5 +478,5 @@ $('financialSearch').addEventListener('input', renderFinancialTable); $('financi
 $('saveRate').addEventListener('click', saveRate); $('vehicleRateFleet').addEventListener('change', renderVehicleRateEditor); $('vehicleRatePlate').addEventListener('change', renderVehicleRateUsages); $('vehicleRateUsage').addEventListener('change', loadVehicleRateValue); $('saveVehicleRate').addEventListener('click', saveVehicleRate); $('removeVehicleRate').addEventListener('click', removeVehicleRate); document.querySelectorAll('[data-detail]').forEach(el => el.addEventListener('click', () => openDetail(el.dataset.detail))); $('backDashboard').addEventListener('click', closeDetail);
 document.addEventListener('click', e => { const item = e.target.closest('.cost-result'); if (item) openDetail(item.dataset.detail); });
 document.addEventListener('click', e => { const item = e.target.closest('.ranking-action'); if (item) openDetail(item.dataset.rankingKind, item.dataset.rankingFilter); });
-document.addEventListener('click', e => { const item = e.target.closest('[data-financial-kind]'); if (item) openFinancialDetail(item.dataset.financialKind, item.dataset.financialFilter || ''); });
+document.addEventListener('click', e => { const item = e.target.closest('[data-financial-kind]'); if (item) openFinancialDetail(item.dataset.financialKind, item.dataset.financialFilter || '', item.dataset.financialFleet || ''); });
 document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (!$('costSheetModal').classList.contains('hidden')) closeCostSheetPicker(); else if (!$('financialDetailView').classList.contains('hidden')) closeFinancialDetail(); else if (!$('indicatorView').classList.contains('hidden')) closeDetail(); });
