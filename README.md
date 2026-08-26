@@ -27,6 +27,8 @@ No arquivo de referência foram reconhecidas as bases de janeiro a julho. O dete
 
 Nas abas mensais atuais da planilha **Custo - Copia**, a data exata de saída é lida da coluna B e a data de retorno da coluna R. O sistema continua conferindo os nomes dos cabeçalhos para aceitar abas antigas em que essas colunas estejam deslocadas. O mês e o ano exibidos vêm da data de saída da própria base financeira, e a duração é calculada prioritariamente pela diferença entre saída e retorno; `LEAD TIME DA ROTA` é usado somente quando uma dessas datas não está disponível.
 
+Na validação da planilha **Custo - Copia(1)**, os 1.612 embarques mensais com dados completos obedeceram à fórmula `R$/TON = CUSTO ROTA ÷ TOTAL TONS × 1.000`, sem divergência. A análise também confirmou que a distância e o peso transportado afetam fortemente o indicador. Por isso, a classificação dos motoristas compara viagens da mesma frota e das faixas `até 150`, `151–300`, `301–600` e `acima de 600 km`, mantendo o R$/ton real visível para conferência.
+
 O vínculo entre as planilhas é feito pelo número do embarque. Para evitar totais incorretos, um embarque repetido na mesma aba ou entre várias abas financeiras é considerado apenas uma vez e fica sinalizado. O sistema preserva o registro mais completo. A conferência também separa embarques **cruzados**, **sem custo** e **sem rota**. Se as planilhas forem de meses diferentes, o painel informa que nenhuma correspondência foi encontrada em vez de misturar os valores.
 
 ## O que o sistema identifica
@@ -58,17 +60,19 @@ Uma utilização é contabilizada quando há uma placa de veículo e também uma
 - Consolidação das abas financeiras sem duplicar o custo de um embarque repetido
 - Cruzamento automático entre a planilha operacional e a base financeira pelo número do embarque
 - Total de faturamento e custo da rota para conferência, mais R$/ton médio, menor e maior valor somente dos embarques encontrados nas duas bases
-- R$/ton lido diretamente da coluna AF da base de valores, sem reconstruir o indicador por outra fórmula
+- R$/ton lido diretamente pelo cabeçalho da base de valores (coluna AF nas abas atuais). Se a célula estiver vazia, o app aplica a mesma fórmula da planilha: `CUSTO ROTA ÷ TOTAL TONS × 1.000`
 - Painel exclusivo dos SPOTs com custo total, R$/ton médio, menor, maior e quantidade de embarques sem esse valor
 - Detalhamento clicável dos SPOTs, ordenado do menor para o maior R$/ton
-- Top 3 para bonificação separado entre carros da casa e terceiros fixos, usando como critério o menor R$/ton médio
+- Classificação completa dos motoristas, separada entre carros da casa e terceiros fixos; os três melhores ficam destacados para bonificação e todos os demais continuam abaixo
+- Índice de R$/ton ajustado: `100` representa a mediana da mesma frota e faixa de distância; quanto menor o índice, melhor o desempenho
+- Faixas visíveis: `Excelente` até 85, `Bom` até 100, `Atenção` até 125 e `Ruim` acima de 125; uma única viagem fica como `Amostra inicial`
 - Rankings separados de carros da casa e terceiros fixos em rotas próximas (até 150 km), combinando menor R$/ton com menor tempo entre a saída e o retorno
 - Rankings separados de carros da casa e terceiros fixos em rotas longas (acima de 150 km), usando a mesma comparação de R$/ton e velocidade de retorno
 - Os três melhores de cada frota ficam destacados, todos os demais continuam listados abaixo em ordem de eficiência e motoristas sem todos os campos necessários aparecem no fim como `Dados insuficientes`
-- As referências de R$/ton e duração são calculadas separadamente para carros da casa e terceiros fixos, evitando comparar categorias com estruturas diferentes
+- As referências de R$/ton e duração são calculadas separadamente por frota e por distância (`até 150`, `151–300`, `301–600` e `acima de 600 km`), evitando penalizar quem atende rotas mais longas
 - Selo de qualidade por motorista: `Padrão consistente`, `Em observação`, `Fora do padrão` ou `Amostra inicial`, calculado pela proporção de viagens dentro das referências de R$/ton e duração do próprio período
 - Rankings de qualidade clicáveis, com as datas exatas de saída e retorno e somente as viagens que formaram a avaliação
-- Ranking clicável de motoristas com menor desempenho, mostrando também o R$/ton médio por motorista e somando faltas, atestados, rotas de até 150 km que passaram de um dia e R$/ton acima de 25% da mediana da mesma frota
+- Ranking clicável de motoristas com menor desempenho, mostrando também o R$/ton médio por motorista e somando faltas, atestados, rotas de até 150 km que passaram de um dia e R$/ton acima de 25% da mediana da mesma frota e faixa de distância
 - Pontuação visível e auditável: falta `+5`, atestado `+3`, rota curta demorada `+3` e R$/ton elevado `+2`
 - Tela fixa com todas as ocorrências que formaram a pontuação; o indicador exige revisão humana antes de qualquer decisão
 - Ranking das viagens mais demoradas usando prioritariamente a diferença entre a data de saída e a data de retorno e, quando necessário, `LEAD TIME DA ROTA`

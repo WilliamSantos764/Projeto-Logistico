@@ -44,6 +44,9 @@
     <style>
       .financial-kpi.ton-kpi{border-top-color:#16a98c}.financial-kpi.ton-best-kpi{border-top-color:#2479b9}.financial-kpi.ton-high-kpi{border-top-color:#d06f3c}.spot-result-ready{border-left-color:#16a98c;background:linear-gradient(135deg,#fff,#f0fbf7)}.spot-result-ready .spot-result-badge{background:#dff6ee;color:#10715c}.performance-ton{margin-top:6px!important;color:#14755f!important;font-weight:850!important}@media(max-width:620px){.performance-ton{width:100%}}
     </style>
+    <style>
+      .ton-formula-note{display:grid;gap:4px;margin-bottom:13px;padding:13px 15px;border:1px solid #bcdde4;border-left:4px solid #1688cf;border-radius:10px;background:#f7fcfd;color:#526b79;line-height:1.45}.ton-formula-note strong{color:#0d2b45;font-size:12px}.ton-formula-note span{font-size:11px}.ton-formula-note small{color:#1688cf;font-size:9px;font-weight:800}.driver-ton-card{grid-column:1/-1}.driver-ton-ranking{max-height:720px;overflow:auto;padding-right:4px;scrollbar-gutter:stable}.ton-rating-good{background:#e9f2fd;color:#1c579b!important}@media(max-width:560px){.ton-formula-note{padding:11px}.driver-ton-ranking{max-height:600px}}
+    </style>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   </head>
   <body>
@@ -173,10 +176,11 @@
           </section>
 
           <section id="financialAnalysis" class="financial-analysis" aria-labelledby="financialAnalysisTitle">
-            <div class="financial-section-heading"><div><p class="eyebrow">CRUZAMENTO INTELIGENTE</p><h2 id="financialAnalysisTitle">R$/ton, custos e duração por embarque</h2><p>O embarque liga a operação ao R$/ton da coluna AF nas abas selecionadas, sem duplicar registros.</p></div><span id="financialPeriod" class="financial-period">Aguardando base financeira</span></div>
-            <div id="financialEmpty" class="financial-empty"><strong id="financialEmptyTitle">Importe a base de valores para cruzar os embarques</strong><p id="financialEmptyText">Depois de escolher uma ou várias abas, o sistema ligará R$/ton da coluna AF, rota, motorista e duração automaticamente.</p></div>
+            <div class="financial-section-heading"><div><p class="eyebrow">CRUZAMENTO INTELIGENTE</p><h2 id="financialAnalysisTitle">R$/ton, custos e duração por embarque</h2><p>O embarque liga a operação ao campo R$/TON detectado nas abas selecionadas, sem duplicar registros.</p></div><span id="financialPeriod" class="financial-period">Aguardando base financeira</span></div>
+            <div id="financialEmpty" class="financial-empty"><strong id="financialEmptyTitle">Importe a base de valores para cruzar os embarques</strong><p id="financialEmptyText">Depois de escolher uma ou várias abas, o sistema localizará o cabeçalho R$/TON e ligará rota, motorista e duração automaticamente.</p></div>
             <div id="financialContent" class="hidden">
               <div id="financialNotice" class="financial-notice"></div>
+              <div class="ton-formula-note"><strong>Como interpretar o R$/ton</strong><span>R$/ton = CUSTO ROTA ÷ peso total em kg × 1.000. Quanto menor, melhor. Para classificar motoristas sem penalizar rotas longas, cada viagem é comparada à mediana da mesma frota e faixa de distância.</span><small>Índice: Excelente ≤ 85 • Bom ≤ 100 • Atenção ≤ 125 • Ruim &gt; 125. O valor 100 representa a mediana comparável.</small></div>
               <article id="spotResultPanel" class="spot-result-panel spot-result-neutral">
                 <div class="spot-result-heading"><div><p class="eyebrow">CONTROLE DOS SPOTS</p><h3>R$/ton dos SPOTs</h3><p>RS 4 em diante, Cart Smart 4 em diante e demais terceiros fora da lista fixa.</p></div><span id="spotResultBadge" class="spot-result-badge">SEM SPOT CRUZADO</span></div>
                 <div class="spot-result-grid">
@@ -193,14 +197,14 @@
                 <button class="financial-kpi" type="button" data-financial-kind="matched"><span>Embarques cruzados</span><strong id="financialMatched">0</strong><small id="financialMatchedSmall">de 0 embarques da operação</small></button>
                 <button class="financial-kpi" type="button" data-financial-kind="revenue"><span>Faturamento cruzado</span><strong id="financialRevenue">R$ 0,00</strong><small>somente embarques encontrados nas duas bases</small></button>
                 <button class="financial-kpi cost-kpi" type="button" data-financial-kind="cost"><span>Custo total das rotas</span><strong id="financialCost">R$ 0,00</strong><small>valor do cabeçalho CUSTO ROTA</small></button>
-                <button class="financial-kpi ton-kpi" type="button" data-financial-kind="ton-average"><span>R$/ton médio</span><strong id="financialTonAverage">—</strong><small>média dos valores da coluna AF</small></button>
+                <button class="financial-kpi ton-kpi" type="button" data-financial-kind="ton-average"><span>R$/ton médio</span><strong id="financialTonAverage">—</strong><small>média dos valores do campo R$/TON</small></button>
                 <button class="financial-kpi ton-best-kpi" type="button" data-financial-kind="ton-best"><span>Menor R$/ton</span><strong id="financialTonBest">—</strong><small>menor valor é mais eficiente</small></button>
                 <button class="financial-kpi ton-high-kpi" type="button" data-financial-kind="ton-highest"><span>Maior R$/ton</span><strong id="financialTonHighest">—</strong><small>maior valor pede atenção</small></button>
               </div>
               <div class="financial-rank-grid">
                 <article class="card financial-card"><h3>Rotas mais eficientes</h3><p>Menor R$/ton médio por rota</p><ol id="routeEfficiencyRanking" class="financial-ranking"></ol></article>
-                <article class="card financial-card"><h3>Rotas com maior R$/ton</h3><p>Maior média da coluna AF por rota</p><ol id="routeTonRanking" class="financial-ranking"></ol></article>
-                <article class="card financial-card bonus-ranking-card"><div class="bonus-ranking-heading"><div><h3>Top 3 para bonificação</h3><p>Critério: menor R$/ton médio, separado entre casa e fixos</p></div><span>BONIFICAÇÃO</span></div><ol id="driverTonRanking" class="financial-ranking"></ol></article>
+                <article class="card financial-card"><h3>Rotas com maior R$/ton</h3><p>Maior média de R$/ton por rota</p><ol id="routeTonRanking" class="financial-ranking"></ol></article>
+                <article class="card financial-card bonus-ranking-card driver-ton-card"><div class="bonus-ranking-heading"><div><h3>Classificação dos motoristas por R$/ton</h3><p>Casa e fixos separados. Os três melhores ficam destacados e todos os demais aparecem abaixo.</p></div><span>TOP 3 BONIFICAÇÃO</span></div><ol id="driverTonRanking" class="financial-ranking driver-ton-ranking"></ol></article>
                 <article class="card financial-card"><h3>Viagens mais demoradas</h3><p>Diferença entre saída e retorno; lead time apenas como alternativa</p><ol id="durationRanking" class="financial-ranking"></ol></article>
                 <article class="card financial-card quality-ranking-card"><h3>Eficiência — rotas próximas</h3><p>Casa e terceiros fixos em rankings separados. Os três melhores ficam destacados; os demais e quem possui dados incompletos aparecem abaixo.</p><small id="nearQualityBenchmark" class="quality-benchmark"></small><ol id="nearDriverQualityRanking" class="financial-ranking quality-ranking-list"></ol></article>
                 <article class="card financial-card quality-ranking-card quality-far"><h3>Eficiência — rotas longas</h3><p>Casa e terceiros fixos em rankings separados. Compara R$/ton e velocidade de retorno acima de 150 km sem ocultar os demais motoristas.</p><small id="farQualityBenchmark" class="quality-benchmark"></small><ol id="farDriverQualityRanking" class="financial-ranking quality-ranking-list"></ol></article>
@@ -214,7 +218,7 @@
 
           <section id="performanceAnalysis" class="performance-analysis" aria-labelledby="performanceTitle">
             <div class="performance-heading"><div><p class="eyebrow">ATENÇÃO OPERACIONAL</p><h2 id="performanceTitle">Motoristas com menor desempenho</h2><p>Soma ocorrências objetivas do período e abre cada evidência para conferência.</p></div><span class="performance-review-badge">REVISÃO HUMANA</span></div>
-            <div class="performance-method" aria-label="Regras da pontuação"><span>Falta +5</span><span>Atestado +3</span><span>Rota até 150 km acima de 1 dia +3</span><span>R$/ton 25% acima da mediana da frota +2</span></div>
+            <div class="performance-method" aria-label="Regras da pontuação"><span>Falta +5</span><span>Atestado +3</span><span>Rota até 150 km acima de 1 dia +3</span><span>R$/ton 25% acima da mediana da mesma frota e distância +2</span></div>
             <p id="performanceStatus" class="performance-status"></p>
             <article class="card performance-card"><div class="performance-card-heading"><h3>Ranking de pontos de atenção e R$/ton</h3><span id="performanceRankingCount">0 motoristas com pontos de atenção</span></div><ol id="performanceRanking" class="performance-ranking"></ol></article>
           </section>
