@@ -78,6 +78,9 @@ Uma utilização é contabilizada quando há uma placa de veículo e também uma
 - Ranking clicável de motoristas com menor desempenho, mostrando também o R$/ton médio por motorista e somando faltas, atestados, rotas próximas que ultrapassaram o prazo esperado e R$/ton acima de 25% da mediana da mesma frota e faixa de distância
 - Pontuação visível e auditável: falta `+5`, atestado `+3`, rota curta demorada `+3` e R$/ton elevado `+2`
 - Tela fixa com todas as ocorrências que formaram a pontuação; o indicador exige revisão humana antes de qualquer decisão
+- Plano de melhoria automático que cruza todos os dados importados e gera ideias priorizadas com evidência, ação sugerida e acesso aos registros usados
+- Recomendações para cobertura financeira incompleta, dependência e recorrência de SPOT, picos diários, R$/ton acima da referência, baixa ocupação, prazo de retorno, variação de custo, apoio aos motoristas e cobertura de ausências
+- Critérios transparentes e revisáveis: cada recomendação explica de onde veio e assuntos de saúde ou desempenho nunca são tratados como decisão automática
 - Ranking das viagens mais demoradas usando prioritariamente a diferença entre a data de saída e a data de retorno e, quando necessário, `LEAD TIME DA ROTA`
 - Tabela completa com busca e filtros para embarques cruzados, sem custo e sem rota
 - Detalhamento financeiro em tela fixa, com cabeçalho visível e rolagem somente dentro dos dados

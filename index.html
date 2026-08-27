@@ -229,6 +229,23 @@
             <article class="card performance-card"><div class="performance-card-heading"><h3>Ranking de pontos de atenção e R$/ton</h3><span id="performanceRankingCount">0 motoristas com pontos de atenção</span></div><ol id="performanceRanking" class="performance-ranking"></ol></article>
           </section>
 
+          <section id="improvementAnalysis" class="improvement-analysis" aria-labelledby="improvementTitle">
+            <div class="improvement-heading">
+              <div><p class="eyebrow">PLANO DE MELHORIA AUTOMÁTICO</p><h2 id="improvementTitle">Ideias geradas pelos dados do período</h2><p>O sistema cruza operação, R$/ton, distância desde Santa Rita do Sapucaí, ocupação, prazo, SPOTs e disponibilidade da equipe.</p></div>
+              <button class="secondary-btn" id="refreshImprovements" type="button">Atualizar ideias</button>
+            </div>
+            <div class="improvement-summary" aria-label="Resumo das ideias de melhoria">
+              <div class="improvement-summary-high"><span>Prioridade alta</span><strong id="improvementHigh">0</strong></div>
+              <div class="improvement-summary-medium"><span>Ajustes</span><strong id="improvementMedium">0</strong></div>
+              <div class="improvement-summary-opportunity"><span>Oportunidades</span><strong id="improvementOpportunity">0</strong></div>
+              <div><span>Cruzamento financeiro</span><strong id="improvementCoverage">Sem base</strong></div>
+            </div>
+            <div class="improvement-rules" aria-label="Critérios da análise"><span>SPOT recorrente ≥ 3 usos</span><span>R$/ton comparado por frota e distância</span><span>Ocupação abaixo de 75%</span><span>Prazo esperado por distância</span><span>Conclusão sempre revisável</span></div>
+            <p id="improvementStatus" class="improvement-status"></p>
+            <div id="improvementList" class="improvement-list"></div>
+            <p class="improvement-disclaimer">As recomendações apoiam a decisão, mas não substituem a conferência dos embarques nem uma avaliação humana — especialmente em assuntos de saúde e desempenho de funcionários.</p>
+          </section>
+
           <article class="card report-card">
             <div class="report-toolbar">
               <div><h3>Detalhamento das utilizações</h3><p id="reportCount">0 registros</p></div>
