@@ -27,7 +27,9 @@ No arquivo de referência foram reconhecidas as bases de janeiro a julho. O dete
 
 Nas abas mensais atuais da planilha **Custo - Copia**, a data exata de saída é lida da coluna B e a data de retorno da coluna R. O sistema continua conferindo os nomes dos cabeçalhos para aceitar abas antigas em que essas colunas estejam deslocadas. O mês e o ano exibidos vêm da data de saída da própria base financeira, e a duração é calculada prioritariamente pela diferença entre saída e retorno; `LEAD TIME DA ROTA` é usado somente quando uma dessas datas não está disponível.
 
-Na validação da planilha **Custo - Copia(1)**, os embarques mensais com dados completos obedeceram à fórmula `R$/TON = CUSTO ROTA ÷ TOTAL TONS × 1.000`, sem divergência. A análise também confirmou que a distância e o peso transportado afetam fortemente o indicador. A empresa é considerada localizada em **Santa Rita do Sapucaí/MG**. O sistema calcula o percurso típico pela mediana do campo `KM ROTA` de cada destino, reduzindo o efeito de desvios pontuais, e aplica proteção geográfica para cidades conhecidas quando o KM informado é incompatível. No histórico analisado, Pouso Alegre apresentou referência de aproximadamente 91 km e foi corretamente mantida como rota muito próxima, enquanto Belo Horizonte permaneceu longa apesar de registros de KM incorretos.
+Na validação da planilha **Custo - Copia(1)**, os embarques mensais com dados completos obedeceram à fórmula `R$/TON = CUSTO ROTA ÷ TOTAL TONS × 1.000`, sem divergência. A análise também confirmou que distância e peso transportado afetam fortemente o indicador. A origem oficial foi fixada no ponto da Cooperrita na BR, nas coordenadas **-22.261541, -45.764269**. As 104 cidades encontradas nas sete bases mensais receberam uma referência rodoviária desde esse ponto. A classificação usa a distância de ida e volta até o município, enquanto `KM ROTA` continua representando o percurso efetivamente lançado na planilha. Assim, Pouso Alegre fica em aproximadamente 22 km de ida e permanece muito próxima; Belo Horizonte fica em aproximadamente 400 km de ida e permanece longa mesmo quando o KM lançado estiver incorreto.
+
+Os centros municipais usados nas referências vêm da base aberta [Municípios Brasileiros](https://github.com/kelvins/municipios-brasileiros), e as distâncias rodoviárias foram calculadas com o motor [OSRM](https://project-osrm.org/docs/v5.24.0/api/) sobre a malha do OpenStreetMap. Esses valores servem para proximidade e comparação; o percurso realmente feito continua sendo o `KM ROTA` da planilha.
 
 O vínculo entre as planilhas é feito pelo número do embarque. Para evitar totais incorretos, um embarque repetido na mesma aba ou entre várias abas financeiras é considerado apenas uma vez e fica sinalizado. O sistema preserva o registro mais completo. A conferência também separa embarques **cruzados**, **sem custo** e **sem rota**. Se as planilhas forem de meses diferentes, o painel informa que nenhuma correspondência foi encontrada em vez de misturar os valores.
 
@@ -69,9 +71,10 @@ Uma utilização é contabilizada quando há uma placa de veículo e também uma
 - Classificação completa dos motoristas, separada entre carros da casa e terceiros fixos; os três melhores ficam destacados para bonificação e todos os demais continuam abaixo
 - Índice de R$/ton ajustado: `100` representa a mediana da mesma frota e faixa de distância; quanto menor o índice, melhor o desempenho
 - Faixas visíveis: `Excelente` até 85, `Bom` até 100, `Atenção` até 125 e `Ruim` acima de 125; uma única viagem fica como `Amostra inicial`
-- Origem operacional fixa em Santa Rita do Sapucaí/MG, visível no painel
-- Rankings clicáveis das rotas mais próximas e mais longas da base, usando o percurso típico de cada rota
-- Proteção contra KM incompatível: cidades conhecidas não mudam de proximidade por causa de um lançamento isolado incorreto
+- Origem operacional fixa no ponto exato da Cooperrita na BR: `-22.261541, -45.764269`, visível no painel
+- Rankings clicáveis das rotas mais próximas e mais longas da base, usando a referência rodoviária de ida e volta desde essa coordenada
+- Referências rodoviárias para as 104 cidades encontradas nas sete abas financeiras; rotas futuras sem referência continuam usando a mediana de `KM ROTA`
+- Proteção contra KM incompatível: a proximidade geográfica não muda por causa de um lançamento isolado incorreto, e o valor divergente fica sinalizado para revisão
 - Rankings separados de carros da casa e terceiros fixos em rotas próximas, combinando menor R$/ton com retorno dentro do prazo esperado
 - Rankings separados de carros da casa e terceiros fixos em rotas regionais e longas, usando a mesma comparação de R$/ton e velocidade de retorno
 - Os três melhores de cada frota ficam destacados, todos os demais continuam listados abaixo em ordem de eficiência e motoristas sem todos os campos necessários aparecem no fim como `Dados insuficientes`

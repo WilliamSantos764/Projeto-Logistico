@@ -32,3 +32,5 @@ main{max-width:1220px;margin:auto;padding:42px 24px 52px}.hero{min-height:184px;
 .app-tab-shell{min-height:360px}.app-tab-panel{scroll-margin-top:105px;animation:app-tab-enter .2s ease}.app-tab-panel>.financial-analysis,.app-tab-panel>.performance-analysis,.app-tab-panel>.improvement-analysis,.app-tab-panel>.cost-card,.app-tab-panel>.report-card:first-child{margin-top:0}@keyframes app-tab-enter{from{opacity:.45;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:1080px){.app-tab-nav{display:flex;overflow-x:auto;scrollbar-width:thin;scroll-snap-type:x proximity}.app-tab-button{flex:0 0 184px;scroll-snap-align:start}}
 @media(max-width:520px){.app-tab-nav{top:6px;margin-left:-5px;margin-right:-5px;padding:6px;border-radius:12px}.app-tab-button{flex-basis:158px;min-height:60px;padding:8px}.app-tab-button small{font-size:7.5px}.app-tab-shell{min-height:280px}}
+.route-origin-note p b{color:#1688cf;font-weight:900;white-space:nowrap}
+.route-origin-note p a{color:#1688cf;font-weight:800;text-decoration:none}.route-origin-note p a:hover{text-decoration:underline}
