@@ -66,6 +66,8 @@ Uma utilização é contabilizada quando há uma placa de veículo e também uma
 - Cruzamento automático entre a planilha operacional e a base financeira pelo número do embarque
 - Total de faturamento e custo da rota para conferência, mais R$/ton médio, menor e maior valor somente dos embarques encontrados nas duas bases
 - R$/ton lido diretamente pelo cabeçalho da base de valores (coluna AF nas abas atuais). Se a célula estiver vazia, o app aplica a mesma fórmula da planilha: `CUSTO ROTA ÷ TOTAL TONS × 1.000`
+- Dashboard visual de menor e maior R$/ton separado entre carros da casa, terceiros fixos e SPOTs; cada barra abre exatamente os embarques que formam aquele valor
+- Botão em cada bloco para conferir todos os embarques da frota ordenados do menor para o maior R$/ton
 - Painel exclusivo dos SPOTs com custo total, R$/ton médio, menor, maior e quantidade de embarques sem esse valor
 - Detalhamento clicável dos SPOTs, ordenado do menor para o maior R$/ton
 - Classificação completa dos motoristas, separada entre carros da casa e terceiros fixos; os três melhores ficam destacados para bonificação e todos os demais continuam abaixo
