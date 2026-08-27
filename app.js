@@ -1,6 +1,15 @@
 /* Frota Insight — processamento local de planilhas de rota */
 function loadSavedRates() { try { return JSON.parse(localStorage.getItem('frotaInsightRates') || '{}'); } catch { localStorage.removeItem?.('frotaInsightRates'); return {}; } }
-const state = { records: [], absences: [], audit: [], loadedKeys: new Set(), rates: loadSavedRates(), costBase: null, costWorkbook: null, costFileName: '', pendingCost: null, crossAnalysis: null, driverPerformance: null, improvementAnalysis: null, detailOrigin: { x: 0, y: 0, active: false } };
+const APP_TAB_CONFIG = Object.freeze([
+  { key: 'overview', buttonId: 'appTabOverview', panelId: 'appTabPanelOverview' },
+  { key: 'costs', buttonId: 'appTabCosts', panelId: 'appTabPanelCosts' },
+  { key: 'financial', buttonId: 'appTabFinancial', panelId: 'appTabPanelFinancial' },
+  { key: 'drivers', buttonId: 'appTabDrivers', panelId: 'appTabPanelDrivers' },
+  { key: 'improvements', buttonId: 'appTabImprovements', panelId: 'appTabPanelImprovements' },
+  { key: 'reports', buttonId: 'appTabReports', panelId: 'appTabPanelReports' }
+]);
+function loadSavedTab() { try { const saved = localStorage.getItem('frotaInsightActiveTab'); return APP_TAB_CONFIG.some(tab => tab.key === saved) ? saved : 'overview'; } catch { return 'overview'; } }
+const state = { records: [], absences: [], audit: [], loadedKeys: new Set(), rates: loadSavedRates(), costBase: null, costWorkbook: null, costFileName: '', pendingCost: null, crossAnalysis: null, driverPerformance: null, improvementAnalysis: null, activeTab: loadSavedTab(), detailOrigin: { x: 0, y: 0, tab: 'overview', active: false } };
 const $ = (id) => document.getElementById(id);
 const fileInput = $('fileInput'), folderInput = $('folderInput'), dropzone = $('dropzone'), costFileInput = $('costFileInput');
 const FLEETS = { COOPERRITA: 'Carros da casa', 'TERCEIROS FIXOS': 'Terceiros fixos', SPOT: 'SPOT' };
@@ -44,18 +53,44 @@ function daysBetween(first, second) { if (!first || !second) return null; const 
 function isContinuation(record) { return /CONTINUA.{0,20}ESCALA/i.test(`${record.shipment} ${record.city}`); }
 function showToast(message) { const toast = $('toast'); toast.textContent = message; toast.classList.add('show'); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => toast.classList.remove('show'), 3200); }
 function setDetailMode(active) { document.documentElement.classList.toggle('detail-mode', active); document.body.classList.toggle('detail-mode', active); }
+function setActiveTab(tabKey, options = {}) {
+  const selected = APP_TAB_CONFIG.find(tab => tab.key === tabKey) || APP_TAB_CONFIG[0], { focus = false, scroll = false } = options;
+  state.activeTab = selected.key;
+  APP_TAB_CONFIG.forEach(tab => {
+    const active = tab.key === selected.key, button = $(tab.buttonId), panel = $(tab.panelId);
+    button?.classList.toggle('is-active', active); button?.setAttribute?.('aria-selected', String(active)); if (button) button.tabIndex = active ? 0 : -1;
+    panel?.classList.toggle('hidden', !active); panel?.setAttribute?.('aria-hidden', String(!active));
+  });
+  try { localStorage.setItem('frotaInsightActiveTab', selected.key); } catch {}
+  const button = $(selected.buttonId), panel = $(selected.panelId);
+  if (focus) button?.focus?.({ preventScroll: true });
+  if (scroll) setTimeout(() => panel?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }), 0);
+  return selected.key;
+}
+function navigateTabByKeyboard(event, currentKey) {
+  const currentIndex = APP_TAB_CONFIG.findIndex(tab => tab.key === currentKey); if (currentIndex < 0) return;
+  let nextIndex = currentIndex;
+  if (event.key === 'ArrowRight' || event.key === 'ArrowDown') nextIndex = (currentIndex + 1) % APP_TAB_CONFIG.length;
+  else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') nextIndex = (currentIndex - 1 + APP_TAB_CONFIG.length) % APP_TAB_CONFIG.length;
+  else if (event.key === 'Home') nextIndex = 0;
+  else if (event.key === 'End') nextIndex = APP_TAB_CONFIG.length - 1;
+  else return;
+  event.preventDefault?.(); setActiveTab(APP_TAB_CONFIG[nextIndex].key, { focus: true, scroll: true });
+}
 function rememberDetailOrigin() {
   if (document.body.classList.contains('detail-mode')) return;
   const root = document.documentElement || {}, body = document.body || {};
   state.detailOrigin = {
     x: Number(window.scrollX ?? window.pageXOffset ?? root.scrollLeft ?? body.scrollLeft) || 0,
     y: Number(window.scrollY ?? window.pageYOffset ?? root.scrollTop ?? body.scrollTop) || 0,
+    tab: state.activeTab,
     active: true
   };
 }
 function restoreDetailOrigin() {
   const origin = state.detailOrigin; if (!origin?.active) return;
   state.detailOrigin = { ...origin, active: false };
+  setActiveTab(origin.tab || 'overview', { focus: false, scroll: false });
   setTimeout(() => window.scrollTo(origin.x, origin.y), 0);
 }
 function findSheetDate(rows, sheetName) { for (const row of rows.slice(0, 9)) for (const cell of row) { const found = dateKey(cell); if (found) return found; } const m = clean(sheetName).match(/^(\d{2})(\d{2})(\d{2,4})?$/); return m && m[3] ? `${m[3].length === 2 ? '20' + m[3] : m[3]}-${m[2]}-${m[1]}` : clean(sheetName); }
@@ -135,7 +170,7 @@ function extractSheet(rows, source, sheet) {
   return { records, absences, message: headers ? `${sheet}: ${records.length} rota(s), ${absences.length} afastamento(s), ${headers} cabeçalho(s) lido(s).${detail}` : `${sheet}: nenhum cabeçalho de Placa/Motorista reconhecido.` };
 }
 function resetImportedData() {
-  state.records = []; state.absences = []; state.audit = []; state.loadedKeys.clear(); state.crossAnalysis = null; state.driverPerformance = null; state.improvementAnalysis = null;
+  state.records = []; state.absences = []; state.audit = []; state.loadedKeys.clear(); state.crossAnalysis = null; state.driverPerformance = null; state.improvementAnalysis = null; state.activeTab = 'overview';
   $('dashboard').classList.add('hidden'); $('indicatorView').classList.add('hidden'); $('financialDetailView')?.classList.add('hidden'); setDetailMode(false);
   $('searchInput').value = ''; $('dateFilter').value = ''; $('fleetFilter').value = ''; $('plateFilter').value = ''; $('employeeFilter').value = ''; $('absenceFilter').value = '';
 }
@@ -841,7 +876,7 @@ function openDetail(kind, filter = '') {
 function closeDetail() { $('indicatorView').classList.add('hidden'); if (state.records.length) $('dashboard').classList.remove('hidden'); setDetailMode(false); restoreDetailOrigin(); }
 
 function render() {
-  $('indicatorView').classList.add('hidden'); $('financialDetailView').classList.add('hidden'); $('dashboard').classList.remove('hidden'); setDetailMode(false); $('clearData').hidden = false; const records = sortedRecords();
+  $('indicatorView').classList.add('hidden'); $('financialDetailView').classList.add('hidden'); $('dashboard').classList.remove('hidden'); setDetailMode(false); setActiveTab(state.activeTab, { focus: false, scroll: false }); $('clearData').hidden = false; const records = sortedRecords();
   $('importStatus').textContent = `${state.loadedKeys.size} arquivo(s) • ${records.length} rotas • ${state.absences.length} afastamentos`;
   $('metricUses').textContent = records.length; $('metricHouse').textContent = countFleet(records, 'COOPERRITA'); $('metricFixed').textContent = countFleet(records, 'TERCEIROS FIXOS'); $('metricSpot').textContent = countFleet(records, 'SPOT'); $('metricLeaves').textContent = countAbsence('FOLGA'); $('metricVacation').textContent = countAbsence('FÉRIAS'); $('metricMedical').textContent = countAbsence('ATESTADO'); $('metricOvernight').textContent = records.filter(isOvernight).length;
   setOptions('dateFilter', [...new Set(records.map(r => r.date))].filter(Boolean).sort(), 'Todos os dias', value => displayDate({ date: value, sheet: value })); setOptions('fleetFilter', FLEET_ORDER.filter(fleet => records.some(r => r.fleet === fleet)), 'Todas as frotas', fleet => FLEETS[fleet]); setOptions('plateFilter', [...new Set(records.map(r => r.plate))].sort(), 'Todas as placas'); setOptions('employeeFilter', [...new Set(state.absences.map(r => r.employee))].sort(), 'Todos'); setOptions('absenceFilter', [...new Set(state.absences.map(r => r.type))].sort(), 'Todos os tipos', type => ABSENCE_LABELS[type]);
@@ -870,8 +905,13 @@ function exportCsv() {
   const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })), link = document.createElement('a');
   link.href = url; link.download = 'relatorio-frota-completo.csv'; link.click(); URL.revokeObjectURL(url);
 }
-function clearAll() { state.records = []; state.absences = []; state.audit = []; state.loadedKeys.clear(); state.crossAnalysis = null; state.driverPerformance = null; state.improvementAnalysis = null; $('dashboard').classList.add('hidden'); $('indicatorView').classList.add('hidden'); $('financialDetailView').classList.add('hidden'); setDetailMode(false); $('clearData').hidden = true; $('importStatus').textContent = 'Nenhuma planilha importada'; fileInput.value = ''; folderInput.value = ''; showToast('Dados removidos do painel.'); }
+function clearAll() { state.records = []; state.absences = []; state.audit = []; state.loadedKeys.clear(); state.crossAnalysis = null; state.driverPerformance = null; state.improvementAnalysis = null; state.activeTab = 'overview'; setActiveTab('overview', { focus: false, scroll: false }); $('dashboard').classList.add('hidden'); $('indicatorView').classList.add('hidden'); $('financialDetailView').classList.add('hidden'); setDetailMode(false); $('clearData').hidden = true; $('importStatus').textContent = 'Nenhuma planilha importada'; fileInput.value = ''; folderInput.value = ''; showToast('Dados removidos do painel.'); }
 
+APP_TAB_CONFIG.forEach(tab => {
+  const button = $(tab.buttonId);
+  button.addEventListener('click', () => setActiveTab(tab.key, { focus: true, scroll: true }));
+  button.addEventListener('keydown', event => navigateTabByKeyboard(event, tab.key));
+});
 $('chooseFiles').addEventListener('click', () => fileInput.click()); fileInput.addEventListener('change', e => readFiles([...e.target.files])); folderInput.addEventListener('change', e => readFiles([...e.target.files]));
 $('chooseCostFile').addEventListener('click', () => { costFileInput.value = ''; costFileInput.click(); }); costFileInput.addEventListener('change', e => prepareCostFile(e.target.files?.[0])); $('confirmCostSheet').addEventListener('click', confirmCostSheetImport); $('cancelCostSheet').addEventListener('click', closeCostSheetPicker); $('changeCostSheet').addEventListener('click', reopenCostSheetPicker); $('costSelectAll').addEventListener('click', () => selectPendingCostSheets(state.pendingCost?.names.map((_, index) => index) || [])); $('costClearSelection').addEventListener('click', () => selectPendingCostSheets([])); $('costSheetOptions').addEventListener('change', e => { const input = e.target.closest?.('[data-cost-sheet-index]'); if (input) updatePendingCostSheet(Number(input.dataset.costSheetIndex), Boolean(input.checked)); }); $('costSheetModal').addEventListener('click', e => { if (e.target === $('costSheetModal')) closeCostSheetPicker(); });
 dropzone.addEventListener('click', e => { if (!e.target.closest('button')) fileInput.click(); }); dropzone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
@@ -887,3 +927,4 @@ document.addEventListener('click', e => { const item = e.target.closest('[data-c
 document.addEventListener('click', e => { const item = e.target.closest('[data-improvement-index]'); if (item) openImprovementDetail(item.dataset.improvementIndex); });
 document.addEventListener('click', e => { const item = e.target.closest('[data-financial-kind]'); if (item) openFinancialDetail(item.dataset.financialKind, item.dataset.financialFilter || '', item.dataset.financialFleet || '', item.dataset.financialCategory || ''); });
 document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (!$('costSheetModal').classList.contains('hidden')) closeCostSheetPicker(); else if (!$('financialDetailView').classList.contains('hidden')) closeFinancialDetail(); else if (!$('indicatorView').classList.contains('hidden')) closeDetail(); });
+setActiveTab(state.activeTab, { focus: false, scroll: false });

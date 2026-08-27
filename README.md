@@ -41,6 +41,9 @@ Uma utilização é contabilizada quando há uma placa de veículo e também uma
 
 ## Relatórios disponíveis
 
+- Navegação organizada em seis abas: **Visão geral**, **Custos da frota**, **R$/ton e rotas**, **Motoristas**, **Melhorias** e **Relatórios**
+- Barra de abas fixa durante a rolagem, com navegação horizontal em telas pequenas e suporte às setas do teclado
+- Somente a área escolhida permanece visível; ao fechar um detalhamento, o app retorna à mesma aba e à posição exata anterior
 - Total de veículos-dia em rota e utilizações por tipo de frota
 - Carros da casa, terceiros fixos e SPOTs em indicadores separados
 - Folgas, férias, atestados e faltas por funcionário

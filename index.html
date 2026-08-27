@@ -114,6 +114,18 @@
             <button class="secondary-btn" id="exportCsv" type="button">Baixar relatório completo</button>
           </div>
 
+          <nav id="appTabNav" class="app-tab-nav" role="tablist" aria-label="Áreas do aplicativo">
+            <button id="appTabOverview" class="app-tab-button is-active" type="button" role="tab" aria-selected="true" aria-controls="appTabPanelOverview" data-app-tab="overview"><span class="app-tab-index">01</span><span><strong>Visão geral</strong><small>Indicadores e gráficos</small></span></button>
+            <button id="appTabCosts" class="app-tab-button" type="button" role="tab" aria-selected="false" aria-controls="appTabPanelCosts" data-app-tab="costs" tabindex="-1"><span class="app-tab-index">02</span><span><strong>Custos da frota</strong><small>Valores padrão e individual</small></span></button>
+            <button id="appTabFinancial" class="app-tab-button" type="button" role="tab" aria-selected="false" aria-controls="appTabPanelFinancial" data-app-tab="financial" tabindex="-1"><span class="app-tab-index">03</span><span><strong>R$/ton e rotas</strong><small>Custos e eficiência</small></span></button>
+            <button id="appTabDrivers" class="app-tab-button" type="button" role="tab" aria-selected="false" aria-controls="appTabPanelDrivers" data-app-tab="drivers" tabindex="-1"><span class="app-tab-index">04</span><span><strong>Motoristas</strong><small>Desempenho e atenção</small></span></button>
+            <button id="appTabImprovements" class="app-tab-button" type="button" role="tab" aria-selected="false" aria-controls="appTabPanelImprovements" data-app-tab="improvements" tabindex="-1"><span class="app-tab-index">05</span><span><strong>Melhorias</strong><small>Ideias automáticas</small></span></button>
+            <button id="appTabReports" class="app-tab-button" type="button" role="tab" aria-selected="false" aria-controls="appTabPanelReports" data-app-tab="reports" tabindex="-1"><span class="app-tab-index">06</span><span><strong>Relatórios</strong><small>Tabelas e auditoria</small></span></button>
+          </nav>
+
+          <div class="app-tab-shell">
+          <section id="appTabPanelOverview" class="app-tab-panel" role="tabpanel" aria-labelledby="appTabOverview" data-app-tab-panel="overview" tabindex="0">
+
           <section class="dashboard-block">
             <div class="block-heading"><div><h3>Operação da frota</h3><p>Utilizações identificadas nas rotas importadas</p></div><span>Clique nos indicadores para detalhar</span></div>
           <div class="kpis fleet-kpis">
@@ -133,6 +145,30 @@
             <button class="kpi" data-detail="OVERNIGHT"><span class="kpi-label">Pernoites</span><strong id="metricOvernight">0</strong><small>clique para ver as rotas</small></button>
           </div>
           </section>
+          <div class="layout-grid">
+            <article class="card chart-card">
+              <div class="card-heading"><div><h3>Uso da frota por dia</h3><p>Clique em uma barra para ver as utilizações daquele dia</p></div><div class="chart-legend"><span class="legend house-dot">Casa</span><span class="legend fixed-dot">Fixos</span><span class="legend spot-dot">SPOT</span></div></div>
+              <div id="dailyChart" class="bar-chart"></div>
+              <p id="noChart" class="empty-mini hidden">Não há registros utilizados para exibir.</p>
+            </article>
+            <article class="card ranking-card">
+              <div class="card-heading"><div><h3>Veículos mais utilizados</h3><p>Ranking da frota completa</p></div></div>
+              <ol id="vehicleRanking" class="ranking"></ol>
+            </article>
+          </div>
+
+          <section class="insights-section">
+            <div class="block-heading"><div><h3>Análises rápidas</h3><p>Rankings automáticos do período importado</p></div><span>Clique em um nome ou placa para ver os registros</span></div>
+            <div class="insights-grid">
+              <article class="card insight-card"><span class="insight-icon medical-icon">+</span><h3>Mais atestados</h3><ol id="medicalRanking" class="mini-ranking"></ol></article>
+              <article class="card insight-card"><span class="insight-icon leave-icon">☾</span><h3>Mais folgas</h3><ol id="leaveRanking" class="mini-ranking"></ol></article>
+              <article class="card insight-card"><span class="insight-icon vacation-icon">◇</span><h3>Mais férias</h3><ol id="vacationRanking" class="mini-ranking"></ol></article>
+              <article class="card insight-card vehicles-insight"><span class="insight-icon vehicle-icon">↗</span><h3>Veículos mais usados por frota</h3><div id="fleetVehicleRankings" class="fleet-rankings"></div></article>
+            </div>
+          </section>
+          </section>
+
+          <section id="appTabPanelCosts" class="app-tab-panel hidden" role="tabpanel" aria-labelledby="appTabCosts" data-app-tab-panel="costs" tabindex="0">
           <article class="card cost-card">
             <h3>Gasto por tipo de frota</h3>
             <p>Defina um valor padrão por utilização para cada categoria. Os totais serão recalculados automaticamente.</p>
@@ -155,28 +191,9 @@
             </div>
             <div id="costSummary" class="cost-summary"></div>
           </article>
-
-          <div class="layout-grid">
-            <article class="card chart-card">
-              <div class="card-heading"><div><h3>Uso da frota por dia</h3><p>Clique em uma barra para ver as utilizações daquele dia</p></div><div class="chart-legend"><span class="legend house-dot">Casa</span><span class="legend fixed-dot">Fixos</span><span class="legend spot-dot">SPOT</span></div></div>
-              <div id="dailyChart" class="bar-chart"></div>
-              <p id="noChart" class="empty-mini hidden">Não há registros utilizados para exibir.</p>
-            </article>
-            <article class="card ranking-card">
-              <div class="card-heading"><div><h3>Veículos mais utilizados</h3><p>Ranking da frota completa</p></div></div>
-              <ol id="vehicleRanking" class="ranking"></ol>
-            </article>
-          </div>
-
-          <section class="insights-section">
-            <div class="block-heading"><div><h3>Análises rápidas</h3><p>Rankings automáticos do período importado</p></div><span>Clique em um nome ou placa para ver os registros</span></div>
-            <div class="insights-grid">
-              <article class="card insight-card"><span class="insight-icon medical-icon">+</span><h3>Mais atestados</h3><ol id="medicalRanking" class="mini-ranking"></ol></article>
-              <article class="card insight-card"><span class="insight-icon leave-icon">☾</span><h3>Mais folgas</h3><ol id="leaveRanking" class="mini-ranking"></ol></article>
-              <article class="card insight-card"><span class="insight-icon vacation-icon">◇</span><h3>Mais férias</h3><ol id="vacationRanking" class="mini-ranking"></ol></article>
-              <article class="card insight-card vehicles-insight"><span class="insight-icon vehicle-icon">↗</span><h3>Veículos mais usados por frota</h3><div id="fleetVehicleRankings" class="fleet-rankings"></div></article>
-            </div>
           </section>
+
+          <section id="appTabPanelFinancial" class="app-tab-panel hidden" role="tabpanel" aria-labelledby="appTabFinancial" data-app-tab-panel="financial" tabindex="0">
 
           <section id="financialAnalysis" class="financial-analysis" aria-labelledby="financialAnalysisTitle">
             <div class="financial-section-heading"><div><p class="eyebrow">CRUZAMENTO INTELIGENTE</p><h2 id="financialAnalysisTitle">R$/ton, custos e duração por embarque</h2><p>O embarque liga a operação ao campo R$/TON detectado nas abas selecionadas, sem duplicar registros.</p></div><span id="financialPeriod" class="financial-period">Aguardando base financeira</span></div>
@@ -221,14 +238,18 @@
               </article>
             </div>
           </section>
+          </section>
 
+          <section id="appTabPanelDrivers" class="app-tab-panel hidden" role="tabpanel" aria-labelledby="appTabDrivers" data-app-tab-panel="drivers" tabindex="0">
           <section id="performanceAnalysis" class="performance-analysis" aria-labelledby="performanceTitle">
             <div class="performance-heading"><div><p class="eyebrow">ATENÇÃO OPERACIONAL</p><h2 id="performanceTitle">Motoristas com menor desempenho</h2><p>Soma ocorrências objetivas do período e abre cada evidência para conferência.</p></div><span class="performance-review-badge">REVISÃO HUMANA</span></div>
             <div class="performance-method" aria-label="Regras da pontuação"><span>Falta +5</span><span>Atestado +3</span><span>Rota próxima da base acima do prazo +3</span><span>R$/ton 25% acima da mediana da mesma frota e distância +2</span></div>
             <p id="performanceStatus" class="performance-status"></p>
             <article class="card performance-card"><div class="performance-card-heading"><h3>Ranking de pontos de atenção e R$/ton</h3><span id="performanceRankingCount">0 motoristas com pontos de atenção</span></div><ol id="performanceRanking" class="performance-ranking"></ol></article>
           </section>
+          </section>
 
+          <section id="appTabPanelImprovements" class="app-tab-panel hidden" role="tabpanel" aria-labelledby="appTabImprovements" data-app-tab-panel="improvements" tabindex="0">
           <section id="improvementAnalysis" class="improvement-analysis" aria-labelledby="improvementTitle">
             <div class="improvement-heading">
               <div><p class="eyebrow">PLANO DE MELHORIA AUTOMÁTICO</p><h2 id="improvementTitle">Ideias geradas pelos dados do período</h2><p>O sistema cruza operação, R$/ton, distância desde Santa Rita do Sapucaí, ocupação, prazo, SPOTs e disponibilidade da equipe.</p></div>
@@ -245,7 +266,9 @@
             <div id="improvementList" class="improvement-list"></div>
             <p class="improvement-disclaimer">As recomendações apoiam a decisão, mas não substituem a conferência dos embarques nem uma avaliação humana — especialmente em assuntos de saúde e desempenho de funcionários.</p>
           </section>
+          </section>
 
+          <section id="appTabPanelReports" class="app-tab-panel hidden" role="tabpanel" aria-labelledby="appTabReports" data-app-tab-panel="reports" tabindex="0">
           <article class="card report-card">
             <div class="report-toolbar">
               <div><h3>Detalhamento das utilizações</h3><p id="reportCount">0 registros</p></div>
@@ -284,6 +307,8 @@
             <div><strong>Leitura das planilhas</strong><span id="auditSummary"></span></div>
             <details><summary>Ver abas processadas e avisos</summary><ul id="auditList"></ul></details>
           </article>
+          </section>
+          </div>
         </section>
         <section id="indicatorView" class="card indicator-view hidden" role="dialog" aria-modal="true" aria-labelledby="indicatorTitle"><button class="secondary-btn" id="backDashboard" type="button">← Voltar ao painel</button><div class="indicator-heading"><div><p class="eyebrow">DETALHAMENTO DO INDICADOR</p><h2 id="indicatorTitle">Detalhamento</h2><p id="indicatorSubtitle"></p></div><strong id="indicatorTotal"></strong></div><div class="table-wrap" id="indicatorTableWrap"><table><thead id="indicatorTableHead"><tr><th>Data</th><th>Frota</th><th>Placa</th><th>Motorista</th><th>Embarque</th><th>Rota</th><th>Custo</th></tr></thead><tbody id="indicatorTable"></tbody></table></div></section>
         <section id="financialDetailView" class="card indicator-view financial-detail-view hidden" role="dialog" aria-modal="true" aria-labelledby="financialDetailTitle"><button class="secondary-btn" id="backFinancialDetail" type="button">← Voltar à análise</button><div class="indicator-heading"><div><p class="eyebrow">DETALHAMENTO FINANCEIRO</p><h2 id="financialDetailTitle">Embarques</h2><p id="financialDetailSubtitle"></p></div><strong id="financialDetailTotal"></strong></div><div class="table-wrap" id="financialDetailTableWrap"><table><thead><tr><th>Saída</th><th>Retorno</th><th>Embarque</th><th>Motorista</th><th>Rota</th><th>Frota</th><th>Placa</th><th>Faturamento</th><th>Custo rota</th><th>R$/ton</th><th>KM informado</th><th>Proximidade</th><th>Duração</th><th>Situação</th></tr></thead><tbody id="financialDetailTable"></tbody></table></div></section>
