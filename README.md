@@ -41,9 +41,22 @@ Na classificação dos veículos externos, somente **RS 1, RS 2, RS 3, Cart Smar
 
 Uma utilização é contabilizada quando há uma placa de veículo e também uma rota/cidade real ou um embarque. Linhas vazias e `CONTINUAÇÃO DE ESCALA` não entram como utilização. As seções `FOLGA`, `FÉRIAS`, `ATESTADO` e `FALTA` são lidas separadamente como disponibilidade da equipe.
 
+
+## Dashboard de gastos SPOT
+
+O projeto agora possui uma aba exclusiva **Gastos SPOT**. Ela usa os SPOTs identificados na planilha operacional e cruza cada número de embarque com a base financeira selecionada.
+
+- mostra quantos embarques SPOT existem na operação e quantos foram encontrados na base financeira;
+- soma o **gasto SPOT confirmado** usando `CUSTO ROTA`; quando esse campo não estiver disponível, o app consegue calcular o custo pela relação `R$/TON × peso em kg ÷ 1.000`, desde que os dois valores existam;
+- calcula **R$/ton ponderado** pelo peso, peso total cruzado, SPOTs sem custo e percentual de cobertura;
+- exibe gráfico de gasto por dia, ranking de rotas e motoristas com maior gasto e uma tabela de conferência por embarque;
+- todos os indicadores são clicáveis e abrem o detalhamento financeiro correspondente.
+
+A cobertura é mostrada explicitamente para impedir totais enganosos. Se a planilha operacional for de agosto, por exemplo, mas a base financeira selecionada terminar em julho, os embarques SPOT aparecerão como **sem custo** até que a base do mesmo período seja importada.
+
 ## Relatórios disponíveis
 
-- Navegação organizada em seis abas: **Visão geral**, **Custos da frota**, **R$/ton e rotas**, **Motoristas**, **Melhorias** e **Relatórios**
+- Navegação organizada em sete abas: **Visão geral**, **Custos da frota**, **R$/ton e rotas**, **Gastos SPOT**, **Motoristas**, **Melhorias** e **Relatórios**
 - Barra de abas fixa durante a rolagem, com navegação horizontal em telas pequenas e suporte às setas do teclado
 - Somente a área escolhida permanece visível; ao fechar um detalhamento, o app retorna à mesma aba e à posição exata anterior
 - Total de veículos-dia em rota e utilizações por tipo de frota

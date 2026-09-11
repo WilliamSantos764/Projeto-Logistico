@@ -4,6 +4,7 @@ const APP_TAB_CONFIG = Object.freeze([
   { key: 'overview', buttonId: 'appTabOverview', panelId: 'appTabPanelOverview' },
   { key: 'costs', buttonId: 'appTabCosts', panelId: 'appTabPanelCosts' },
   { key: 'financial', buttonId: 'appTabFinancial', panelId: 'appTabPanelFinancial' },
+  { key: 'spot', buttonId: 'appTabSpot', panelId: 'appTabPanelSpot' },
   { key: 'drivers', buttonId: 'appTabDrivers', panelId: 'appTabPanelDrivers' },
   { key: 'improvements', buttonId: 'appTabImprovements', panelId: 'appTabPanelImprovements' },
   { key: 'reports', buttonId: 'appTabReports', panelId: 'appTabPanelReports' }
@@ -848,6 +849,75 @@ function renderSpotFinancial(rows) {
   else { panel.classList.add('spot-result-ready'); badge.textContent = 'R$/TON DISPONÍVEL'; }
   $('spotShipmentCount').textContent = spots.length; $('spotCost').textContent = money(finiteSum(spots, 'cost')); $('spotTonAverage').textContent = moneyOrDash(finiteAverage(tonRows, 'costPerTon')); $('spotTonBest').textContent = moneyOrDash(finiteMinimum(tonRows, 'costPerTon')); $('spotTonHighest').textContent = moneyOrDash(finiteMaximum(tonRows, 'costPerTon')); $('spotTonMissing').textContent = spots.length - tonRows.length;
 }
+function allocatedSpotWeightKg(row) {
+  if (!Number.isFinite(row?.totalTons) || row.totalTons <= 0) return null;
+  const allocation = Number.isFinite(row.sharedShipments) && row.sharedShipments > 1 ? row.sharedShipments : 1;
+  return row.totalTons / allocation;
+}
+function spotEffectiveCost(row) {
+  if (Number.isFinite(row?.cost)) return roundedMoney(row.cost);
+  const kg = allocatedSpotWeightKg(row);
+  if (Number.isFinite(row?.costPerTon) && Number.isFinite(kg) && kg > 0) return roundedMoney(row.costPerTon * kg / 1000);
+  return null;
+}
+function spotTotalCost(rows) { return roundedMoney(rows.reduce((sum, row) => sum + (spotEffectiveCost(row) ?? 0), 0)) || 0; }
+function spotTotalWeightKg(rows) { return rows.reduce((sum, row) => sum + (allocatedSpotWeightKg(row) ?? 0), 0); }
+function spotWeightedCostPerTon(rows) {
+  let cost = 0, kg = 0;
+  rows.forEach(row => { const rowCost = spotEffectiveCost(row), rowKg = allocatedSpotWeightKg(row); if (Number.isFinite(rowCost) && Number.isFinite(rowKg) && rowKg > 0) { cost += rowCost; kg += rowKg; } });
+  return kg > 0 ? roundedMoney(cost / kg * 1000) : null;
+}
+function spotOperationalShipmentCount() {
+  const shipments = new Set();
+  state.records.filter(row => row.fleet === 'SPOT').forEach(row => shipmentKeys(row.shipment).forEach(shipment => shipments.add(shipment)));
+  return shipments.size;
+}
+function spotSpendGroups(rows, field) {
+  const groups = new Map();
+  rows.forEach(row => {
+    const label = clean(row[field]); if (!label) return; const key = norm(label), cost = spotEffectiveCost(row);
+    if (!groups.has(key)) groups.set(key, { key, label, rows: [], cost: 0, costCount: 0, tonTotal: 0, tonCount: 0 });
+    const group = groups.get(key); group.rows.push(row);
+    if (Number.isFinite(cost)) { group.cost += cost; group.costCount++; }
+    if (Number.isFinite(row.costPerTon)) { group.tonTotal += row.costPerTon; group.tonCount++; }
+  });
+  return [...groups.values()].map(group => ({ ...group, cost: roundedMoney(group.cost) || 0, averageCostPerTon: group.tonCount ? roundedMoney(group.tonTotal / group.tonCount) : null }));
+}
+function spotSpendTableRow(row) {
+  const cost = spotEffectiveCost(row), weightKg = allocatedSpotWeightKg(row), departure = displayIsoDate(row.departureDate || row.costDate || row.date);
+  return `<tr><td>${escapeHtml(departure)}</td><td><button class="shipment-link" data-financial-kind="shipment" data-financial-filter="${escapeHtml(row.shipment)}">${escapeHtml(row.shipment)}</button></td><td>${escapeHtml(row.driver || '—')}<small class="spot-table-plate">${escapeHtml(row.plate || '—')}</small></td><td class="route-cell" title="${escapeHtml(row.route || row.dailyRoute || '')}">${escapeHtml(row.route || row.dailyRoute || '—')}</td><td>${Number.isFinite(weightKg) ? `${numberPt(weightKg / 1000, 2)} t` : '—'}</td><td>${moneyOrDash(cost)}</td><td>${Number.isFinite(row.costPerTon) ? `${money(row.costPerTon)}/ton` : '—'}</td><td><span class="financial-status ${financialStatusClass(row.status)}">${financialStatusLabel(row.status)}</span></td></tr>`;
+}
+function renderSpotSpendDashboard(analysis = state.crossAnalysis) {
+  const empty = $('spotSpendEmpty'), content = $('spotSpendContent'); if (!empty || !content) return;
+  const operationalCount = spotOperationalShipmentCount(); $('spotSpendOperational').textContent = operationalCount;
+  if (!state.costBase || !analysis) {
+    empty.classList.remove('hidden'); content.classList.add('hidden'); $('spotSpendPeriod').textContent = operationalCount ? `${operationalCount} embarque${operationalCount === 1 ? '' : 's'} SPOT na operação` : 'Aguardando dados';
+    $('spotSpendEmptyTitle').textContent = operationalCount ? 'Agora importe a base de custos para calcular os gastos SPOT' : 'Importe a operação e a base de custos';
+    $('spotSpendEmptyText').textContent = operationalCount ? 'O painel já identificou os SPOTs. O custo será cruzado pelo número do embarque e pelo campo R$/TON assim que a base financeira for importada.' : 'O dashboard cruza os embarques classificados como SPOT com CUSTO ROTA, TOTAL TONS e R$/TON da base financeira.';
+    return;
+  }
+  empty.classList.add('hidden'); content.classList.remove('hidden'); $('spotSpendPeriod').textContent = `${costBaseLabel()} • ${state.costBase.fileName}`;
+  const matched = analysis.matchedRows.filter(row => row.fleet === 'SPOT'), missing = analysis.routeOnlyRows.filter(row => row.fleet === 'SPOT');
+  const matchedCount = new Set(matched.map(row => row.shipment)).size, missingCount = Math.max(0, operationalCount - matchedCount), coverage = operationalCount ? matchedCount / operationalCount : 0;
+  const totalCost = spotTotalCost(matched), weightedTon = spotWeightedCostPerTon(matched), totalWeightKg = spotTotalWeightKg(matched), tonRows = matched.filter(row => Number.isFinite(row.costPerTon));
+  $('spotSpendMatched').textContent = matchedCount; $('spotSpendTotal').textContent = money(totalCost); $('spotSpendWeightedTon').textContent = Number.isFinite(weightedTon) ? `${money(weightedTon)}/ton` : '—'; $('spotSpendWeight').textContent = totalWeightKg > 0 ? `${numberPt(totalWeightKg / 1000, 2)} t` : '—'; $('spotSpendMissing').textContent = missingCount;
+  $('spotSpendCoverageValue').textContent = percent(coverage); $('spotSpendCoverageFill').style.width = `${Math.max(0, Math.min(100, coverage * 100))}%`; $('spotSpendCoverageText').textContent = `${matchedCount} de ${operationalCount} embarque${operationalCount === 1 ? '' : 's'} SPOT têm custo cruzado`;
+  const notice = $('spotSpendNotice'); notice.classList.remove('financial-notice-ok','financial-notice-warning','financial-notice-error');
+  if (!operationalCount) { notice.classList.add('financial-notice-warning'); notice.textContent = 'Nenhum embarque SPOT foi identificado na operação importada.'; }
+  else if (!matchedCount) { notice.classList.add('financial-notice-error'); notice.textContent = `Foram identificados ${operationalCount} embarques SPOT na operação, mas nenhum existe nas abas financeiras selecionadas. O gasto total não pode ser calculado com segurança até importar a base do mesmo período.`; }
+  else { notice.classList.add(coverage >= .9 ? 'financial-notice-ok' : 'financial-notice-warning'); notice.textContent = `${matchedCount} de ${operationalCount} embarques SPOT foram cruzados (${percent(coverage)}). O gasto confirmado é ${money(totalCost)}${Number.isFinite(weightedTon) ? `, com R$/ton ponderado de ${money(weightedTon)}` : ''}. ${missingCount ? `${missingCount} embarque${missingCount === 1 ? '' : 's'} ainda está sem custo.` : 'Todos os embarques SPOT possuem base financeira.'}`; }
+  const daily = new Map(); matched.forEach(row => { const cost = spotEffectiveCost(row); if (!Number.isFinite(cost)) return; const day = row.departureDate || row.costDate || row.date || 'Sem data'; if (!daily.has(day)) daily.set(day, { cost: 0, rows: 0 }); const item = daily.get(day); item.cost += cost; item.rows++; });
+  const dailyRows = [...daily.entries()].sort((a,b) => String(a[0]).localeCompare(String(b[0]))), maxDaily = Math.max(...dailyRows.map(([,item]) => item.cost), 1);
+  $('spotSpendDailyChart').innerHTML = dailyRows.length ? dailyRows.map(([day,item]) => `<button class="spot-spend-day" type="button" data-financial-kind="spot-day" data-financial-filter="${escapeHtml(day)}" aria-label="Ver gastos SPOT de ${escapeHtml(displayIsoDate(day))}"><strong>${money(item.cost)}</strong><span class="spot-spend-day-track"><span class="spot-spend-day-fill" style="height:${Math.max(5, Math.round(item.cost / maxDaily * 100))}%"></span></span><small>${escapeHtml(displayIsoDate(day))}<b>${item.rows} emb.</b></small></button>`).join('') : '<p class="spot-spend-empty-chart">Nenhum custo SPOT cruzado para montar o gráfico.</p>';
+  const routeGroups = spotSpendGroups(matched, 'route').sort((a,b) => b.cost - a.cost || b.rows.length - a.rows.length).slice(0,6);
+  $('spotSpendRouteRanking').innerHTML = routeGroups.length ? routeGroups.map((group,index) => `<li><button class="financial-ranking-action" data-financial-kind="spot-route" data-financial-filter="${escapeHtml(group.label)}"><span class="ranking-position">${index+1}</span><strong title="${escapeHtml(group.label)}">${escapeHtml(group.label)}<small>${group.rows.length} embarque${group.rows.length === 1 ? '' : 's'}${Number.isFinite(group.averageCostPerTon) ? ` • média ${money(group.averageCostPerTon)}/ton` : ''}</small></strong><b>${money(group.cost)}</b></button></li>`).join('') : emptyFinancialRanking('Sem rotas SPOT com custo cruzado.');
+  const driverGroups = spotSpendGroups(matched, 'driver').filter(group => group.label).sort((a,b) => b.cost - a.cost || b.rows.length - a.rows.length).slice(0,6);
+  $('spotSpendDriverRanking').innerHTML = driverGroups.length ? driverGroups.map((group,index) => `<li><button class="financial-ranking-action" data-financial-kind="spot-driver" data-financial-filter="${escapeHtml(group.label)}"><span class="ranking-position">${index+1}</span><strong>${escapeHtml(group.label)}<small>${group.rows.length} embarque${group.rows.length === 1 ? '' : 's'}${Number.isFinite(group.averageCostPerTon) ? ` • média ${money(group.averageCostPerTon)}/ton` : ''}</small></strong><b>${money(group.cost)}</b></button></li>`).join('') : emptyFinancialRanking('Sem motoristas SPOT com custo cruzado.');
+  const tableRows = [...matched, ...missing].sort((a,b) => (spotEffectiveCost(b) ?? -1) - (spotEffectiveCost(a) ?? -1) || String(a.departureDate || a.date).localeCompare(String(b.departureDate || b.date)));
+  $('spotSpendTableCount').textContent = `${tableRows.length} embarque${tableRows.length === 1 ? '' : 's'} SPOT no cruzamento`;
+  $('spotSpendTable').innerHTML = tableRows.length ? tableRows.map(spotSpendTableRow).join('') : '<tr><td colspan="8" class="no-results">Nenhum embarque SPOT encontrado.</td></tr>';
+  $('spotSpendTonRange').textContent = tonRows.length ? `${money(finiteMinimum(tonRows, 'costPerTon'))}/ton → ${money(finiteMaximum(tonRows, 'costPerTon'))}/ton` : 'Sem R$/ton cruzado';
+}
 function fleetTonDashboardCard(rows, fleet) {
   const label = FLEETS[fleet] || fleet, tone = fleet === 'COOPERRITA' ? 'house' : fleet === 'TERCEIROS FIXOS' ? 'fixed' : 'spot';
   const validRows = rows.filter(row => row.fleet === fleet && Number.isFinite(row.costPerTon) && row.costPerTon > 0);
@@ -898,7 +968,7 @@ function renderFinancialTable() {
 }
 function renderCrossAnalysis() {
   const empty = $('financialEmpty'), content = $('financialContent'); if (!empty || !content) return;
-  if (!state.costBase) { state.crossAnalysis = null; empty.classList.remove('hidden'); content.classList.add('hidden'); $('financialEmptyTitle').textContent = 'Importe a base de valores para cruzar os embarques'; $('financialEmptyText').textContent = 'Depois de escolher uma ou várias abas, o sistema localizará o cabeçalho R$/TON e ligará custo, rota, motorista e duração automaticamente.'; return; }
+  if (!state.costBase) { state.crossAnalysis = null; empty.classList.remove('hidden'); content.classList.add('hidden'); $('financialEmptyTitle').textContent = 'Importe a base de valores para cruzar os embarques'; $('financialEmptyText').textContent = 'Depois de escolher uma ou várias abas, o sistema localizará o cabeçalho R$/TON e ligará custo, rota, motorista e duração automaticamente.'; renderSpotSpendDashboard(null); return; }
   const analysis = buildCrossAnalysis(); empty.classList.add('hidden'); content.classList.remove('hidden');
   const matched = analysis.matchedRows, revenue = finiteSum(matched, 'revenue'), cost = finiteSum(matched, 'cost'), tonRows = matched.filter(row => Number.isFinite(row.costPerTon));
   $('financialPeriod').textContent = `${costBaseLabel()} • ${state.costBase.fileName}`; $('financialMatched').textContent = matched.length; $('financialMatchedSmall').textContent = `de ${analysis.routeUniqueCount} embarque${analysis.routeUniqueCount === 1 ? '' : 's'} da operação`;
@@ -909,7 +979,7 @@ function renderCrossAnalysis() {
   else if (!matched.length) { notice.classList.add('financial-notice-error'); notice.textContent = `Nenhum dos ${analysis.routeUniqueCount} embarques da operação foi encontrado em ${costBaseLabel()}. Confira se as planilhas selecionadas correspondem ao período da operação.${duplicateText}${missingTonText}`; }
   else if (!tonRows.length) { notice.classList.add('financial-notice-error'); notice.textContent = 'Nenhum valor numérico de R$/TON foi encontrado nos embarques cruzados. Confira a aba e o cabeçalho selecionados.'; }
   else { const coverage = matched.length / analysis.routeUniqueCount; notice.classList.add(coverage >= .8 && !state.costBase.missingTonSheets?.length ? 'financial-notice-ok' : 'financial-notice-warning'); notice.textContent = `${matched.length} de ${analysis.routeUniqueCount} embarques da operação foram cruzados (${percent(coverage)}). ${tonRows.length} possuem R$/ton, ${analysis.routeOnlyRows.length} estão sem base de valores e ${analysis.costOnlyRows.length} registros financeiros não aparecem nas rotas.${duplicateText}${missingTonText}`; }
-  renderSpotFinancial(matched); renderFleetTonDashboard(matched); renderFinancialRankings(analysis); renderFinancialTable();
+  renderSpotFinancial(matched); renderSpotSpendDashboard(analysis); renderFleetTonDashboard(matched); renderFinancialRankings(analysis); renderFinancialTable();
 }
 function openFinancialDetail(kind = 'all', filter = '', fleet = '', category = '') {
   const analysis = state.crossAnalysis || buildCrossAnalysis(); if (!analysis) return showToast('Importe as duas planilhas antes de abrir a análise financeira.');
@@ -917,7 +987,12 @@ function openFinancialDetail(kind = 'all', filter = '', fleet = '', category = '
   let rows = [...analysis.allRows], title = 'Todos os embarques', subtitle = 'Conferência entre a operação e a base de valores', detailMetric = '';
   if (['matched','revenue','cost','ton-average','ton-best','ton-highest','duration'].includes(kind)) rows = [...analysis.matchedRows];
   if (kind === 'route-only') rows = [...analysis.routeOnlyRows]; if (kind === 'cost-only') rows = [...analysis.costOnlyRows];
-  if (kind === 'spot') { rows = analysis.matchedRows.filter(row => row.fleet === 'SPOT').sort((a,b) => (a.costPerTon ?? Infinity) - (b.costPerTon ?? Infinity)); title = 'R$/ton dos SPOTs'; subtitle = 'Menores valores de R$/ton aparecem primeiro; confira cada embarque'; }
+  if (kind === 'spot') { rows = analysis.matchedRows.filter(row => row.fleet === 'SPOT').sort((a,b) => (a.costPerTon ?? Infinity) - (b.costPerTon ?? Infinity)); title = 'R$/ton dos SPOTs'; subtitle = 'Menores valores de R$/ton aparecem primeiro; confira cada embarque'; detailMetric = `${money(spotTotalCost(rows))} • ${moneyOrDash(spotWeightedCostPerTon(rows))}/ton`; }
+  if (kind === 'spot-all') { rows = analysis.allRows.filter(row => row.fleet === 'SPOT' && row.status !== 'cost-only'); title = 'Todos os embarques SPOT'; subtitle = 'Cruzados e sem base financeira no mesmo detalhamento'; detailMetric = `${rows.length} embarque${rows.length === 1 ? '' : 's'}`; }
+  if (kind === 'spot-missing') { rows = analysis.routeOnlyRows.filter(row => row.fleet === 'SPOT'); title = 'SPOTs sem custo'; subtitle = 'Embarques identificados na operação que não foram encontrados na base financeira selecionada'; detailMetric = `${rows.length} sem custo`; }
+  if (kind === 'spot-day') { rows = analysis.matchedRows.filter(row => row.fleet === 'SPOT' && (row.departureDate || row.costDate || row.date) === filter); title = `Gasto SPOT — ${displayIsoDate(filter)}`; subtitle = 'Embarques SPOT que formam o gasto deste dia'; detailMetric = money(spotTotalCost(rows)); }
+  if (kind === 'spot-route') { rows = analysis.matchedRows.filter(row => row.fleet === 'SPOT' && norm(row.route) === norm(filter)); title = `Gasto SPOT — ${filter}`; subtitle = 'Embarques SPOT desta rota'; detailMetric = money(spotTotalCost(rows)); }
+  if (kind === 'spot-driver') { rows = analysis.matchedRows.filter(row => row.fleet === 'SPOT' && norm(row.driver) === norm(filter)); title = `Gasto SPOT — ${filter}`; subtitle = 'Embarques SPOT deste motorista'; detailMetric = money(spotTotalCost(rows)); }
   if (kind === 'fleet-ton-all' || kind === 'fleet-ton-low' || kind === 'fleet-ton-high') {
     const label = FLEETS[fleet] || fleet || 'Frota', fleetRows = analysis.matchedRows.filter(row => row.fleet === fleet && Number.isFinite(row.costPerTon) && row.costPerTon > 0), lowest = finiteMinimum(fleetRows, 'costPerTon'), highest = finiteMaximum(fleetRows, 'costPerTon');
     rows = [...fleetRows].sort((a,b) => kind === 'fleet-ton-high' ? b.costPerTon - a.costPerTon : a.costPerTon - b.costPerTon);
@@ -1046,5 +1121,6 @@ document.addEventListener('click', e => { const item = e.target.closest('[data-p
 document.addEventListener('click', e => { const item = e.target.closest('[data-chart-day]'); if (item) openDetail('DAY', item.dataset.chartDay); });
 document.addEventListener('click', e => { const item = e.target.closest('[data-improvement-index]'); if (item) openImprovementDetail(item.dataset.improvementIndex); });
 document.addEventListener('click', e => { const item = e.target.closest('[data-financial-kind]'); if (item) openFinancialDetail(item.dataset.financialKind, item.dataset.financialFilter || '', item.dataset.financialFleet || '', item.dataset.financialCategory || ''); });
+document.addEventListener('click', e => { const item = e.target.closest('[data-app-target]'); if (item) setActiveTab(item.dataset.appTarget, { focus: true, scroll: true }); });
 document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (!$('costSheetModal').classList.contains('hidden')) closeCostSheetPicker(); else if (!$('financialDetailView').classList.contains('hidden')) closeFinancialDetail(); else if (!$('indicatorView').classList.contains('hidden')) closeDetail(); });
 setActiveTab(state.activeTab, { focus: false, scroll: false });

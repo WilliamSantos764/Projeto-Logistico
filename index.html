@@ -121,9 +121,10 @@
             <button id="appTabOverview" class="app-tab-button is-active" type="button" role="tab" aria-selected="true" aria-controls="appTabPanelOverview" data-app-tab="overview"><span class="app-tab-index">01</span><span><strong>Visão geral</strong><small>Indicadores e gráficos</small></span></button>
             <button id="appTabCosts" class="app-tab-button" type="button" role="tab" aria-selected="false" aria-controls="appTabPanelCosts" data-app-tab="costs" tabindex="-1"><span class="app-tab-index">02</span><span><strong>Custos da frota</strong><small>Valores padrão e individual</small></span></button>
             <button id="appTabFinancial" class="app-tab-button" type="button" role="tab" aria-selected="false" aria-controls="appTabPanelFinancial" data-app-tab="financial" tabindex="-1"><span class="app-tab-index">03</span><span><strong>R$/ton e rotas</strong><small>Custos e eficiência</small></span></button>
-            <button id="appTabDrivers" class="app-tab-button" type="button" role="tab" aria-selected="false" aria-controls="appTabPanelDrivers" data-app-tab="drivers" tabindex="-1"><span class="app-tab-index">04</span><span><strong>Motoristas</strong><small>Desempenho e atenção</small></span></button>
-            <button id="appTabImprovements" class="app-tab-button" type="button" role="tab" aria-selected="false" aria-controls="appTabPanelImprovements" data-app-tab="improvements" tabindex="-1"><span class="app-tab-index">05</span><span><strong>Melhorias</strong><small>Ideias automáticas</small></span></button>
-            <button id="appTabReports" class="app-tab-button" type="button" role="tab" aria-selected="false" aria-controls="appTabPanelReports" data-app-tab="reports" tabindex="-1"><span class="app-tab-index">06</span><span><strong>Relatórios</strong><small>Tabelas e auditoria</small></span></button>
+            <button id="appTabSpot" class="app-tab-button spot-tab-button" type="button" role="tab" aria-selected="false" aria-controls="appTabPanelSpot" data-app-tab="spot" tabindex="-1"><span class="app-tab-index">04</span><span><strong>Gastos SPOT</strong><small>Custo e R$/ton</small></span></button>
+            <button id="appTabDrivers" class="app-tab-button" type="button" role="tab" aria-selected="false" aria-controls="appTabPanelDrivers" data-app-tab="drivers" tabindex="-1"><span class="app-tab-index">05</span><span><strong>Motoristas</strong><small>Desempenho e atenção</small></span></button>
+            <button id="appTabImprovements" class="app-tab-button" type="button" role="tab" aria-selected="false" aria-controls="appTabPanelImprovements" data-app-tab="improvements" tabindex="-1"><span class="app-tab-index">06</span><span><strong>Melhorias</strong><small>Ideias automáticas</small></span></button>
+            <button id="appTabReports" class="app-tab-button" type="button" role="tab" aria-selected="false" aria-controls="appTabPanelReports" data-app-tab="reports" tabindex="-1"><span class="app-tab-index">07</span><span><strong>Relatórios</strong><small>Tabelas e auditoria</small></span></button>
           </nav>
 
           <div class="app-tab-shell">
@@ -214,7 +215,7 @@
                   <div><span>Maior R$/ton</span><strong id="spotTonHighest">—</strong></div>
                   <div><span>Sem R$/ton</span><strong id="spotTonMissing">0</strong></div>
                 </div>
-                <button class="secondary-btn spot-result-open" type="button" data-financial-kind="spot">Ver R$/ton dos SPOTs</button>
+                <div class="spot-result-actions"><button class="primary-btn spot-result-open" type="button" data-app-target="spot">Abrir dashboard de gastos</button><button class="secondary-btn spot-result-open" type="button" data-financial-kind="spot">Ver R$/ton dos SPOTs</button></div>
               </article>
               <div class="financial-kpis">
                 <button class="financial-kpi" type="button" data-financial-kind="matched"><span>Embarques cruzados</span><strong id="financialMatched">0</strong><small id="financialMatchedSmall">de 0 embarques da operação</small></button>
@@ -245,6 +246,34 @@
               </article>
             </div>
           </section>
+          </section>
+
+
+          <section id="appTabPanelSpot" class="app-tab-panel hidden" role="tabpanel" aria-labelledby="appTabSpot" data-app-tab-panel="spot" tabindex="0">
+            <section class="spot-spend-dashboard" aria-labelledby="spotSpendTitle">
+              <div class="spot-spend-heading"><div><p class="eyebrow">DASHBOARD EXCLUSIVO</p><h2 id="spotSpendTitle">Quanto estou gastando com SPOT?</h2><p>Cruza os embarques classificados como SPOT com CUSTO ROTA, TOTAL TONS e R$/TON da base financeira.</p></div><span id="spotSpendPeriod" class="financial-period">Aguardando dados</span></div>
+              <div id="spotSpendEmpty" class="financial-empty"><strong id="spotSpendEmptyTitle">Importe a operação e a base de custos</strong><p id="spotSpendEmptyText">O dashboard calcula os gastos dos SPOTs somente quando encontra o mesmo número de embarque na base financeira.</p></div>
+              <div id="spotSpendContent" class="hidden">
+                <div id="spotSpendNotice" class="financial-notice"></div>
+                <div class="spot-spend-kpis">
+                  <button class="spot-spend-kpi spot-kpi-count" type="button" data-financial-kind="spot-all"><span>SPOTs na operação</span><strong id="spotSpendOperational">0</strong><small>embarques distintos identificados</small></button>
+                  <button class="spot-spend-kpi spot-kpi-match" type="button" data-financial-kind="spot"><span>Com custo cruzado</span><strong id="spotSpendMatched">0</strong><small>encontrados na base financeira</small></button>
+                  <button class="spot-spend-kpi spot-kpi-cost" type="button" data-financial-kind="spot"><span>Gasto SPOT confirmado</span><strong id="spotSpendTotal">R$ 0,00</strong><small>CUSTO ROTA; usa R$/ton × peso quando necessário</small></button>
+                  <button class="spot-spend-kpi spot-kpi-ton" type="button" data-financial-kind="spot"><span>R$/ton ponderado</span><strong id="spotSpendWeightedTon">—</strong><small>custo total ÷ peso cruzado</small></button>
+                  <button class="spot-spend-kpi spot-kpi-weight" type="button" data-financial-kind="spot"><span>Peso SPOT cruzado</span><strong id="spotSpendWeight">—</strong><small>toneladas com base financeira</small></button>
+                  <button class="spot-spend-kpi spot-kpi-missing" type="button" data-financial-kind="spot-missing"><span>Sem custo</span><strong id="spotSpendMissing">0</strong><small>SPOTs que faltam na base financeira</small></button>
+                </div>
+                <div class="spot-spend-grid">
+                  <article class="card spot-spend-chart-card"><div class="spot-spend-card-heading"><div><h3>Gasto SPOT por dia</h3><p>Cada barra soma o custo dos embarques SPOT cruzados naquele dia.</p></div><span id="spotSpendTonRange">Sem R$/ton cruzado</span></div><div id="spotSpendDailyChart" class="spot-spend-daily-chart"></div></article>
+                  <article class="card spot-spend-coverage-card"><div class="spot-spend-card-heading"><div><h3>Cobertura da base de custos</h3><p>Quanto dos SPOTs da operação possui custo confirmado.</p></div><strong id="spotSpendCoverageValue">0%</strong></div><div class="spot-spend-coverage-track"><span id="spotSpendCoverageFill"></span></div><p id="spotSpendCoverageText" class="spot-spend-coverage-text">0 de 0 embarques SPOT têm custo cruzado</p><button class="secondary-btn" type="button" data-financial-kind="spot-missing">Ver SPOTs sem custo</button></article>
+                </div>
+                <div class="financial-rank-grid spot-spend-rank-grid">
+                  <article class="card financial-card"><h3>Rotas SPOT com maior gasto</h3><p>Soma do custo por rota no período cruzado.</p><ol id="spotSpendRouteRanking" class="financial-ranking"></ol></article>
+                  <article class="card financial-card"><h3>Motoristas SPOT com maior gasto</h3><p>Soma dos embarques por motorista no período cruzado.</p><ol id="spotSpendDriverRanking" class="financial-ranking"></ol></article>
+                </div>
+                <article class="card report-card spot-spend-table-card"><div class="report-toolbar"><div><h3>Conferência dos SPOTs</h3><p id="spotSpendTableCount">0 embarques SPOT no cruzamento</p></div><button class="secondary-btn" type="button" data-financial-kind="spot-all">Abrir detalhamento completo</button></div><div class="table-wrap"><table><thead><tr><th>Saída</th><th>Embarque</th><th>Motorista / placa</th><th>Rota</th><th>Peso</th><th>Custo SPOT</th><th>R$/ton</th><th>Situação</th></tr></thead><tbody id="spotSpendTable"></tbody></table></div></article>
+              </div>
+            </section>
           </section>
 
           <section id="appTabPanelDrivers" class="app-tab-panel hidden" role="tabpanel" aria-labelledby="appTabDrivers" data-app-tab-panel="drivers" tabindex="0">
