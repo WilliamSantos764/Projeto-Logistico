@@ -872,6 +872,64 @@ function spotOperationalShipmentCount() {
   state.records.filter(row => row.fleet === 'SPOT').forEach(row => shipmentKeys(row.shipment).forEach(shipment => shipments.add(shipment)));
   return shipments.size;
 }
+const SPOT_WEEKDAY_NAMES = ['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
+const SPOT_WEEKDAY_SHORT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+function spotDateObject(iso) { const value = isoDateValue(iso); return value ? new Date(`${value}T12:00:00Z`) : null; }
+function spotMonthLabel(key) {
+  const match = String(key || '').match(/^(\d{4})-(\d{2})$/); if (!match) return clean(key) || '—';
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, 1));
+  const label = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(date);
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+function spotWeekLabel(key, includeRange = true) {
+  const match = String(key || '').match(/^(\d{4})-(\d{2})-W([1-5])$/); if (!match) return clean(key) || '—';
+  const year = Number(match[1]), month = Number(match[2]), week = Number(match[3]), start = (week - 1) * 7 + 1;
+  const last = new Date(Date.UTC(year, month, 0)).getUTCDate(), end = Math.min(week * 7, last), ordinal = `${week}ª semana`, monthLabel = spotMonthLabel(`${match[1]}-${match[2]}`);
+  return includeRange ? `${ordinal} de ${monthLabel} (${String(start).padStart(2,'0')}–${String(end).padStart(2,'0')})` : `${ordinal} • ${monthLabel}`;
+}
+function spotTemporalEntries(map) { return [...map.entries()].sort((a,b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0]))); }
+function spotUsageTemporalAnalysis() {
+  const rows = state.records.filter(row => row.fleet === 'SPOT'), valid = [], invalid = [];
+  rows.forEach(row => { const iso = isoDateValue(row.date); const date = spotDateObject(iso); if (iso && date) valid.push({ row, iso, date }); else invalid.push(row); });
+  const byDate = new Map(), byWeekday = new Map(), byWeek = new Map(), byMonth = new Map(), byYear = new Map();
+  valid.forEach(item => {
+    const weekday = item.date.getUTCDay(), year = item.date.getUTCFullYear(), month = item.date.getUTCMonth() + 1, day = item.date.getUTCDate(), monthKey = `${year}-${String(month).padStart(2,'0')}`, week = Math.min(5, Math.ceil(day / 7)), weekKey = `${monthKey}-W${week}`;
+    [[byDate,item.iso],[byWeekday,weekday],[byWeek,weekKey],[byMonth,monthKey],[byYear,String(year)]].forEach(([map,key]) => map.set(key,(map.get(key)||0)+1));
+  });
+  const dates = valid.map(item => item.iso).sort(), first = dates[0] || '', last = dates[dates.length - 1] || '';
+  return { rows, valid, invalid, byDate, byWeekday, byWeek, byMonth, byYear, first, last, total: valid.length, topDate: spotTemporalEntries(byDate)[0] || null, topWeekday: spotTemporalEntries(byWeekday)[0] || null, topWeek: spotTemporalEntries(byWeek)[0] || null, topMonth: spotTemporalEntries(byMonth)[0] || null, topYear: spotTemporalEntries(byYear)[0] || null };
+}
+function spotTemporalRankingHtml(entries, labelFn, total, limit = 6, metaFn = null) {
+  return entries.slice(0, limit).map(([key,count], index) => {
+    const share = total ? count / total : 0, label = labelFn(key), meta = metaFn ? metaFn(key, count, share) : `${percent(share)} do uso SPOT analisado`;
+    return `<li><span class="ranking-position">${index + 1}</span><strong>${escapeHtml(label)}<small>${escapeHtml(meta)}</small></strong><b>${count} uso${count === 1 ? '' : 's'}</b></li>`;
+  }).join('') || '<li class="no-results">Sem dados suficientes.</li>';
+}
+function renderSpotUsageTemporal() {
+  const empty = $('spotUsageTemporalEmpty'), content = $('spotUsageTemporalContent'); if (!empty || !content) return;
+  const analysis = spotUsageTemporalAnalysis(), total = analysis.total;
+  if (!total) {
+    empty.classList.remove('hidden'); content.classList.add('hidden'); $('spotUsagePeriod').textContent = analysis.rows.length ? `${analysis.rows.length} SPOT sem data reconhecível` : 'Aguardando operação';
+    return;
+  }
+  empty.classList.add('hidden'); content.classList.remove('hidden');
+  $('spotUsagePeriod').textContent = analysis.first === analysis.last ? displayIsoDate(analysis.first) : `${displayIsoDate(analysis.first)} → ${displayIsoDate(analysis.last)}`;
+  const [weekdayKey, weekdayCount] = analysis.topWeekday, [weekKey, weekCount] = analysis.topWeek, [monthKey, monthCount] = analysis.topMonth, [yearKey, yearCount] = analysis.topYear;
+  $('spotUsageWeekdayChampion').textContent = SPOT_WEEKDAY_NAMES[Number(weekdayKey)].replace(/^./, c => c.toUpperCase()); $('spotUsageWeekdayChampionMeta').textContent = `${weekdayCount} uso${weekdayCount === 1 ? '' : 's'} • ${percent(weekdayCount / total)} do total`;
+  $('spotUsageWeekChampion').textContent = spotWeekLabel(weekKey, false); $('spotUsageWeekChampionMeta').textContent = `${weekCount} uso${weekCount === 1 ? '' : 's'} • ${percent(weekCount / total)} do período`;
+  $('spotUsageMonthChampion').textContent = spotMonthLabel(monthKey); $('spotUsageMonthChampionMeta').textContent = `${monthCount} uso${monthCount === 1 ? '' : 's'}${analysis.byMonth.size < 2 ? ' • único mês carregado' : ` • ${percent(monthCount / total)} do histórico`}`;
+  $('spotUsageYearChampion').textContent = yearKey; $('spotUsageYearChampionMeta').textContent = `${yearCount} uso${yearCount === 1 ? '' : 's'}${analysis.byYear.size < 2 ? ' • único ano carregado' : ` • ${percent(yearCount / total)} do histórico`}`;
+  $('spotUsageWeekdayTotal').textContent = `${total} uso${total === 1 ? '' : 's'}`;
+  const order = [1,2,3,4,5,6,0], maxWeekday = Math.max(...order.map(day => analysis.byWeekday.get(day) || 0), 1);
+  $('spotUsageWeekdayChart').innerHTML = order.map(day => { const count = analysis.byWeekday.get(day) || 0, width = count ? Math.max(4, count / maxWeekday * 100) : 0, champion = Number(weekdayKey) === day ? ' is-champion' : ''; return `<div class="spot-usage-weekday-row${champion}"><span>${SPOT_WEEKDAY_SHORT[day]}</span><span class="spot-usage-weekday-track"><span class="spot-usage-weekday-fill" style="width:${Math.round(width * 10) / 10}%"></span></span><strong>${count} uso${count === 1 ? '' : 's'}</strong></div>`; }).join('');
+  $('spotUsageTopDates').innerHTML = spotTemporalRankingHtml(spotTemporalEntries(analysis.byDate), key => `${displayIsoDate(key)} • ${SPOT_WEEKDAY_NAMES[spotDateObject(key).getUTCDay()]}`, total, 7);
+  $('spotUsageWeeksRanking').innerHTML = spotTemporalRankingHtml(spotTemporalEntries(analysis.byWeek), key => spotWeekLabel(key), total, 6);
+  $('spotUsageMonthsRanking').innerHTML = spotTemporalRankingHtml(spotTemporalEntries(analysis.byMonth), key => spotMonthLabel(key), total, 12, (key,count,share) => `${count} uso${count === 1 ? '' : 's'} • ${percent(share)} do histórico`);
+  $('spotUsageYearsRanking').innerHTML = spotTemporalRankingHtml(spotTemporalEntries(analysis.byYear), key => key, total, 8, (key,count,share) => `${count} uso${count === 1 ? '' : 's'} • ${percent(share)} do histórico`);
+  const limitations = []; if (analysis.byMonth.size < 2) limitations.push('há apenas um mês carregado, então ainda não existe comparação entre meses'); if (analysis.byYear.size < 2) limitations.push('há apenas um ano carregado, então ainda não existe comparação entre anos'); if (analysis.invalid.length) limitations.push(`${analysis.invalid.length} utilização${analysis.invalid.length === 1 ? '' : 'ões'} SPOT ficou sem data reconhecível`);
+  $('spotUsageMethodNote').textContent = `Critério: cada linha operacional válida classificada como SPOT conta como 1 utilização do veículo naquele dia. Semana do mês = dias 1–7, 8–14, 15–21, 22–28 e 29–fim. ${limitations.length ? `Observação: ${limitations.join('; ')}.` : 'O histórico possui mais de um mês e ano para comparação.'}`;
+}
+
 function spotSpendGroups(rows, field) {
   const groups = new Map();
   rows.forEach(row => {
@@ -888,6 +946,7 @@ function spotSpendTableRow(row) {
   return `<tr><td>${escapeHtml(departure)}</td><td><button class="shipment-link" data-financial-kind="shipment" data-financial-filter="${escapeHtml(row.shipment)}">${escapeHtml(row.shipment)}</button></td><td>${escapeHtml(row.driver || '—')}<small class="spot-table-plate">${escapeHtml(row.plate || '—')}</small></td><td class="route-cell" title="${escapeHtml(row.route || row.dailyRoute || '')}">${escapeHtml(row.route || row.dailyRoute || '—')}</td><td>${Number.isFinite(weightKg) ? `${numberPt(weightKg / 1000, 2)} t` : '—'}</td><td>${moneyOrDash(cost)}</td><td>${Number.isFinite(row.costPerTon) ? `${money(row.costPerTon)}/ton` : '—'}</td><td><span class="financial-status ${financialStatusClass(row.status)}">${financialStatusLabel(row.status)}</span></td></tr>`;
 }
 function renderSpotSpendDashboard(analysis = state.crossAnalysis) {
+  renderSpotUsageTemporal();
   const empty = $('spotSpendEmpty'), content = $('spotSpendContent'); if (!empty || !content) return;
   const operationalCount = spotOperationalShipmentCount(); $('spotSpendOperational').textContent = operationalCount;
   if (!state.costBase || !analysis) {

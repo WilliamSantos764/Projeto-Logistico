@@ -82,6 +82,8 @@ A cobertura é mostrada explicitamente para impedir totais enganosos. Se a plani
 - Dashboard visual de menor e maior R$/ton separado entre carros da casa, terceiros fixos e SPOTs; cada barra abre exatamente os embarques que formam aquele valor
 - Botão em cada bloco para conferir todos os embarques da frota ordenados do menor para o maior R$/ton
 - Painel exclusivo dos SPOTs com custo total, R$/ton médio, menor, maior e quantidade de embarques sem esse valor
+- Análise temporal automática do uso de SPOT, independente da base de custos: dia da semana com mais uso, semana do mês campeã, mês e ano com maior utilização
+- Rankings de datas, semanas, meses e anos; quando existe apenas um mês ou ano carregado, o painel informa que ainda não há histórico suficiente para comparação entre períodos
 - Detalhamento clicável dos SPOTs, ordenado do menor para o maior R$/ton
 - Classificação completa dos motoristas, separada entre carros da casa e terceiros fixos; os três melhores ficam destacados para bonificação e todos os demais continuam abaixo
 - Índice de R$/ton ajustado: `100` representa a mediana da mesma frota e faixa de distância; quanto menor o índice, melhor o desempenho

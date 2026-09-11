@@ -252,6 +252,28 @@
           <section id="appTabPanelSpot" class="app-tab-panel hidden" role="tabpanel" aria-labelledby="appTabSpot" data-app-tab-panel="spot" tabindex="0">
             <section class="spot-spend-dashboard" aria-labelledby="spotSpendTitle">
               <div class="spot-spend-heading"><div><p class="eyebrow">DASHBOARD EXCLUSIVO</p><h2 id="spotSpendTitle">Quanto estou gastando com SPOT?</h2><p>Cruza os embarques classificados como SPOT com CUSTO ROTA, TOTAL TONS e R$/TON da base financeira.</p></div><span id="spotSpendPeriod" class="financial-period">Aguardando dados</span></div>
+              <section id="spotUsageTemporal" class="spot-usage-temporal" aria-labelledby="spotUsageTemporalTitle">
+                <div class="spot-usage-temporal-heading"><div><p class="eyebrow">PADRÃO DE USO NO TEMPO</p><h3 id="spotUsageTemporalTitle">Quando estamos usando mais SPOT?</h3><p>Compara os usos SPOT por data, dia da semana, semana do mês, mês e ano usando todas as planilhas operacionais carregadas.</p></div><span id="spotUsagePeriod" class="spot-usage-period">Aguardando operação</span></div>
+                <div id="spotUsageTemporalEmpty" class="spot-usage-empty"><strong>Sem datas SPOT para analisar</strong><p>Importe as planilhas operacionais. A comparação não depende da base de custos.</p></div>
+                <div id="spotUsageTemporalContent" class="hidden">
+                  <div class="spot-usage-kpis">
+                    <article class="spot-usage-kpi"><span>Dia da semana campeão</span><strong id="spotUsageWeekdayChampion">—</strong><small id="spotUsageWeekdayChampionMeta">—</small></article>
+                    <article class="spot-usage-kpi"><span>Semana do mês campeã</span><strong id="spotUsageWeekChampion">—</strong><small id="spotUsageWeekChampionMeta">—</small></article>
+                    <article class="spot-usage-kpi"><span>Mês com mais SPOT</span><strong id="spotUsageMonthChampion">—</strong><small id="spotUsageMonthChampionMeta">—</small></article>
+                    <article class="spot-usage-kpi"><span>Ano com mais SPOT</span><strong id="spotUsageYearChampion">—</strong><small id="spotUsageYearChampionMeta">—</small></article>
+                  </div>
+                  <div class="spot-usage-grid">
+                    <article class="card spot-usage-card"><div class="spot-usage-card-heading"><div><h3>Uso por dia da semana</h3><p>Soma todas as utilizações SPOT das datas carregadas.</p></div><span id="spotUsageWeekdayTotal">0 usos</span></div><div id="spotUsageWeekdayChart" class="spot-usage-weekday-chart"></div></article>
+                    <article class="card spot-usage-card"><div class="spot-usage-card-heading"><div><h3>Datas com maior uso de SPOT</h3><p>Ranking dos dias exatos com maior quantidade de veículos SPOT em rota.</p></div></div><ol id="spotUsageTopDates" class="spot-usage-ranking"></ol></article>
+                  </div>
+                  <div class="spot-usage-period-grid">
+                    <article class="card spot-usage-period-card"><h3>Semanas do mês</h3><p>1–7, 8–14, 15–21, 22–28 e 29–fim.</p><ol id="spotUsageWeeksRanking" class="spot-usage-ranking compact"></ol></article>
+                    <article class="card spot-usage-period-card"><h3>Meses</h3><p>Compara os meses disponíveis no histórico importado.</p><ol id="spotUsageMonthsRanking" class="spot-usage-ranking compact"></ol></article>
+                    <article class="card spot-usage-period-card"><h3>Anos</h3><p>Compara os anos quando houver mais de um período carregado.</p><ol id="spotUsageYearsRanking" class="spot-usage-ranking compact"></ol></article>
+                  </div>
+                  <p id="spotUsageMethodNote" class="spot-usage-method-note"></p>
+                </div>
+              </section>
               <div id="spotSpendEmpty" class="financial-empty"><strong id="spotSpendEmptyTitle">Importe a operação e a base de custos</strong><p id="spotSpendEmptyText">O dashboard calcula os gastos dos SPOTs somente quando encontra o mesmo número de embarque na base financeira.</p></div>
               <div id="spotSpendContent" class="hidden">
                 <div id="spotSpendNotice" class="financial-notice"></div>
